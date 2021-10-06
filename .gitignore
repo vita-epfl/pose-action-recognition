@@ -1,0 +1,11 @@
+codes/data/*
+codes/models/trained/*
+*.ipynb_checkpoints
+*__pycache__
+*.vscode
+*.out
+*.aux
+*.bbl
+*.blg
+*.log
+*_minted*
