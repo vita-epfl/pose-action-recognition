@@ -1,5 +1,6 @@
 codes/data/*
 codes/models/trained/*
+codes/datasets
 *.ipynb_checkpoints
 *__pycache__
 *.vscode
