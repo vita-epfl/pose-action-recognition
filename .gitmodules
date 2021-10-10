@@ -1,0 +1,3 @@
+[submodule "open_repos/CS-E4850 Computer Vision/CV-course-py"]
+	path = open_repos/CS-E4850 Computer Vision/CV-course-py
+	url = https://github.com/AaltoVision/CV-course-py-2020
