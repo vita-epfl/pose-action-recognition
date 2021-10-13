@@ -34,6 +34,8 @@ class MonolocoModel(nn.Module):
         self.dropout = nn.Dropout(self.p_dropout)
 
     def forward(self, x):
+        N, V, C = x.shape 
+        x = x.view(N, V*C)
         # pre-processing
         y = self.w1(x)
         y = self.batch_norm1(y)
@@ -107,8 +109,14 @@ class TempMonolocoModel(nn.Module):
 
         self.relu = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(self.p_dropout)
+        
+        self.lstm = nn.LSTM(input_size=linear_size, hidden_size=linear_size, num_layers=1, batch_first=True)
 
-    def forward(self, x):
+    def forward(self, x:torch.Tensor):
+        # batch size, sequence length, number of body joints, feature dimension (3 for 3D space)
+        N, T, V, C = x.shape 
+        device = x.device
+        x = x.view(N*T, V*C)
         # pre-processing
         y = self.w1(x)
         y = self.batch_norm1(y)
@@ -117,6 +125,16 @@ class TempMonolocoModel(nn.Module):
         # linear layers
         for i in range(self.num_stage):
             y = self.linear_stages[i](y)
+        
+        y = y.view(N, T, -1)
+        h0 = torch.zeros((1, N, self.linear_size)).to(device)
+        c0 = torch.zeros((1, N, self.linear_size)).to(device)
+        # getting Cuda Error : RuntimeError: CUDNN_STATUS_EXECUTION_FAILED possibly out of memory
+        # https://discuss.pytorch.org/t/cuda-error-runtimeerror-cudnn-status-execution-failed/17625/13
+        # didn't see it when using batch size 1, but RNN is just toooooooooo slow
+        # TODO try to replace it with the attention block in transformer 
+        y, (hc, cn) = self.lstm(y, (h0, c0))
+        
         y = self.w2(y)
         # need to verify this 
         return F.softmax(y, dim=-1)

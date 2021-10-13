@@ -8,9 +8,9 @@ def compute_accuracy(model, testloader):
     total = 0
     with torch.no_grad():
         for pose, label in testloader:
-            pose, label = pose.flatten(-2,-1).to(device), label.to(device)
+            pose, label = pose.to(device), label.to(device)
             outputs = model(pose)
-            _, predicted = torch.max(outputs.data, 1)
+            _, predicted = torch.max(outputs.data, -1)
             total += label.size(0)
             correct += (predicted == label).sum().item()
     return correct / total

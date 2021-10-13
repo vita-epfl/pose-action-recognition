@@ -1,6 +1,7 @@
 import json
 import torch
 import numpy as np
+import torch.nn as nn 
 import torch.nn.functional as F
 
 from typing import List, Set, Dict, Tuple, Optional
@@ -28,7 +29,7 @@ class TCGDataset(Dataset):
         self.seqs: list = self.process_sequences()
         self.labels: list = self.process_labels(label_type)
         del self.raw_seq, self.raw_label
-        
+
     def process_sequences(self) -> List[torch.Tensor]:
         seqs = [torch.tensor(seq, dtype=torch.float32) for seq in self.raw_seq]
         return seqs
@@ -77,13 +78,13 @@ class TCGSingleFrameDataset(Dataset):
     """
         single frame version of TCG dataset, then a network processes each frame individually, 
         just to test an earlier idea
-        
+
         we can't randomly choose frames from all sequences, because in that scenario, we will take frames from
         (almost) all sequences, and the trainset and testset will be highly correlated 
         Instead, we should first split different sequences, and then get frames from the two sets of sequences
     """
 
-    def __init__(self, tcg_seq_dataset:TCGDataset):
+    def __init__(self, tcg_seq_dataset: TCGDataset):
         super().__init__()
         seq_list, label_list = [], []
         if isinstance(tcg_seq_dataset, Subset):
@@ -94,8 +95,8 @@ class TCGSingleFrameDataset(Dataset):
             seq_list = tcg_seq_dataset.seqs
             label_list = tcg_seq_dataset.labels
         self.frames = torch.cat(seq_list, dim=0)
-        self.labels = torch.cat(label_list, dim=0).type(torch.long)    
-        
+        self.labels = torch.cat(label_list, dim=0).type(torch.long)
+
     def __getitem__(self, index) -> Tuple[torch.Tensor, torch.Tensor]:
         seq = self.frames[index]
         label = self.labels[index]
@@ -103,6 +104,7 @@ class TCGSingleFrameDataset(Dataset):
 
     def __len__(self):
         return len(self.frames)
+
 
 def tcg_one_hot_encoding(n_cls, label):
     """ 
@@ -126,7 +128,7 @@ def tcg_pad_seqs(list_of_seqs: List[torch.Tensor], mode="replicate", pad_value=0
     """
     max_seq_len = len(list_of_seqs[0])
     is_label_seq = True if len(list_of_seqs[0].shape) == 1 else False
-    
+
     padded_list = []
     for seq in list_of_seqs:
 
@@ -141,7 +143,7 @@ def tcg_pad_seqs(list_of_seqs: List[torch.Tensor], mode="replicate", pad_value=0
             seq = seq.permute(2, 0, 1)
         padded_list.append(seq.unsqueeze(0))
     padded_seq = torch.cat(padded_list, dim=0)
-    
+
     return padded_seq.type(torch.long) if is_label_seq else padded_seq
 
 
@@ -159,11 +161,11 @@ def tcg_collate_fn(list_of_seqs, padding_mode="replicate", pad_value=0):
     pose_seq, pose_seq_len, label_seq = [], [], []
     for pose, label in sorted_seqs:
         pose_seq.append(pose)
-        pose_seq_len.append(len(pose_seq))
+        pose_seq_len.append(len(pose))
         label_seq.append(label)
     padded_pose = tcg_pad_seqs(pose_seq, mode=padding_mode, pad_value=pad_value)
     padded_label = tcg_pad_seqs(label_seq, mode=padding_mode, pad_value=pad_value)
-    return padded_pose, torch.tensor(pose_seq_len), padded_label
+    return padded_pose, padded_label
 
 
 def tcg_train_test_split(dataset: TCGDataset, train_size=0.7, seed=42):
@@ -224,8 +226,8 @@ def test_reshape_and_forward():
     from models import MonolocoModel
     net = MonolocoModel(51, 4, 256, 0.2, 3)
     net.eval()
-    rand_data = torch.rand(3, 100, 17*3)
-    out1 = net(rand_data.flatten(0, 1))
+    rand_data = torch.rand(3, 100, 17, 3)
+    out1 = net(rand_data.reshape(300, 17, 3))
     out1 = out1.reshape(3, 100, 4)
 
     out2 = torch.zeros(3, 100, 4)
@@ -233,22 +235,58 @@ def test_reshape_and_forward():
         out2[idx, :, :] = net(rand_data[idx, :, :])
     assert torch.allclose(out1, out2)
 
+
 def test_single_frame_set():
     datapath, label_type = "codes/data", "major"
     tcg_dataset = TCGDataset(datapath, label_type)
     tcg_trainset, tcg_testset = tcg_train_test_split(tcg_dataset)
     trainset, testset = TCGSingleFrameDataset(tcg_trainset), TCGSingleFrameDataset(tcg_testset)
     trainloader = DataLoader(trainset, batch_size=128, shuffle=True)
-    testloader = DataLoader(testset, batch_size=1, shuffle=False)
+    testloader = DataLoader(testset, batch_size=128, shuffle=False)
     very_simple_net = torch.nn.Linear(17*3, 128)
     for pose, label in trainloader:
         # pose has shape (N, V, C), out will be (N, T, out)
         out = very_simple_net(torch.flatten(pose, -2, -1))
         break
 
+
+def test_save_log():
+    filename = 'codes/data/results/TCGSingleFrame_2021-10-13_20.16.55.txt'
+    with open(filename, "w") as f:
+        for epoch, (loss, acc) in enumerate(zip([0.3, 0.5, 0.7, 0.9], [0.3, 0.5, 0.7, 0.9])):
+            f.write("Epoch {} Avg Loss {:.4f} Test Acc {:.4f}\n".format(epoch, loss, acc))
+
+def test_seq_model_forward():
+    from models import TempMonolocoModel
+    net = TempMonolocoModel(51, 4, 256, 0.2, 3)
+    criterion = nn.CrossEntropyLoss()
+    net.eval()
+    rand_data = torch.rand(3, 100, 17, 3)
+    rand_label = torch.randint(0,4, (3, 100))
+    pred = net(rand_data)
+    loss = criterion(pred.reshape(-1, 4), rand_label.reshape(-1))
+
+def test_compute_accuracy():
+    from models import MonolocoModel, TempMonolocoModel
+    from utils import compute_accuracy
+    model = MonolocoModel(51, 4, 128, 0.2, 3)
+    datapath, label_type = "codes/data", "major"
+    tcg_dataset = TCGDataset(datapath, label_type)
+    tcg_trainset, tcg_testset = tcg_train_test_split(tcg_dataset)
+    _, testset = TCGSingleFrameDataset(tcg_trainset), TCGSingleFrameDataset(tcg_testset)
+    testloader = DataLoader(testset, batch_size=128, shuffle=False)
+    acc = compute_accuracy(model, testloader)
+    
+    model = TempMonolocoModel(51, 4, 128, 0.2, 3)
+    testloader = DataLoader(tcg_testset, batch_size=1, shuffle=False, collate_fn=tcg_collate_fn)
+    acc = compute_accuracy(model, testloader)
+    
 if __name__ == "__main__":
+    test_compute_accuracy()
+    test_save_log()
     test_init_and_get_item()
     test_pad_seqs()
     test_seq_forward()
     test_reshape_and_forward()
     test_single_frame_set()
+    test_seq_model_forward()
