@@ -27,10 +27,10 @@ torch.backends.cudnn.deterministic = True
 
 # # set value for some arguments 
 parser = argparse.ArgumentParser() 
-parser.add_argument("--data_dir", type=str, default="codes/data/", help="dataset folder")
-parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures")
-parser.add_argument("--weight_dir", type=str, default="codes/models/trained/", help="path to save trained models")
-parser.add_argument("--result_dir", type=str, default="codes/data/results/", help="training logs")
+parser.add_argument("--data_dir", type=str, default="./data/tcg_dataset/", help="dataset folder")
+parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures")
+parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models")
+parser.add_argument("--result_dir", type=str, default="./out/", help="training logs")
 parser.add_argument("--label_type", type=str, default="major", help="major for 4 classes, sub for 15 classes")
 parser.add_argument("--batch_size", type=int, default=128, help="batch size, use a small value (1) for sequence model")
 parser.add_argument("--num_epoch", type=int, default=50, help="number of training epochs")

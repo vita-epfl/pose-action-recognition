@@ -11,6 +11,6 @@ def compute_accuracy(model, testloader):
             pose, label = pose.to(device), label.to(device)
             outputs = model(pose)
             _, predicted = torch.max(outputs.data, -1)
-            total += label.size(0)
+            total += label.numel() 
             correct += (predicted == label).sum().item()
     return correct / total
