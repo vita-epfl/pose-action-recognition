@@ -1,6 +1,7 @@
-codes/data/*
+codes/data
 codes/models/trained/*
 codes/datasets
+out/
 *.ipynb_checkpoints
 *__pycache__
 *.vscode
