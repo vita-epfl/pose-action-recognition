@@ -15,8 +15,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 torch.autograd.set_detect_anomaly(True)
 
+from threading import Lock
+from multiprocessing import Pool
 from models import MonolocoModel, TempMonolocoModel
-from utils import compute_accuracy
+from utils import compute_accuracy, get_all_predictions
 from tcg_dataset import TCGDataset, TCGSingleFrameDataset, tcg_collate_fn
 
 # define device 
@@ -42,7 +44,7 @@ parser.add_argument("--lr", type=float, default=0.002, help="learning rate")
 parser.add_argument("--model_type", type=str, choices=["single", "sequence"], default="single", 
                     help="train single frame model or sequenced model")
 parser.add_argument("--eval_type", type=str, default="xs", help="cross-subject (xs) or cross-view (xv) evaluation")
-parser.add_argument("--return_pred", type=bool, default=False, help="return prediction results for the whole test set")
+parser.add_argument("--return_pred", action="store_true", help="return prediction results for the whole test set")
 parser.add_argument("--n_process", type=int, default=None, help="number of process for multiprocessing, or None to run in serial")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
 
@@ -50,14 +52,20 @@ def multiprocess_wrapper(args_and_eval_id):
     # args_and_eval_id is a tuple with elements (args, eval_id)
     args, eval_id = args_and_eval_id
     args.eval_id = eval_id
-    train_model(args)
+    return train_model(args)
 
 def train_model(args):
     
+    # to lock stdout and avoid overlapped printing 
+    process_lock:Lock = Lock()
     if args.n_process is not None:
+        process_lock.acquire()
         print("subprocess {} is beginning to train a {} model".format(os.getpid(), args.model_type))
+        process_lock.release()
     else:
+        process_lock.acquire()
         print("beginning to train a {} model".format(args.model_type))
+        process_lock.release()
         
     trainset = TCGDataset(args.data_dir, args.label_type, args.eval_type, args.eval_id, training=True)
     testset = TCGDataset(args.data_dir, args.label_type, args.eval_type, args.eval_id, training=False)
@@ -131,24 +139,31 @@ def train_model(args):
             f.write("Epoch {} Avg Loss {:.4f} Test Acc {:.4f}\n".format(epoch, loss, acc))
             
     if args.n_process is not None:
-        print("subprocess {} has finished training a {} model with \
-            best testing accuracy {}".format(os.getpid(), args.model_type, best_test_acc))
+        process_lock.acquire() 
+        print("subprocess {} has finished training a {} model with best testing accuracy {}".format(os.getpid(), args.model_type, best_test_acc))
+        process_lock.release()
         
+    if args.return_pred:
+        results, _ = get_all_predictions(model, testloader)
+        return results
+    
 if __name__ == "__main__":
-    args = parser.parse_args(["--model_type", "sequence", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--n_process", "3"])
-    # args = parser.parse_args()
+    # args = parser.parse_args(["--model_type", "sequence", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--n_process", "3"])
+    args = parser.parse_args()
     args.output_size = TCGDataset.get_output_size(args.label_type)
     num_splits = TCGDataset.get_num_split(args.eval_type)
     
     if args.n_process is None:
+        combined_results = []
         for idx in range(num_splits):
             args.eval_id = idx
-            train_model(args)
+            result = train_model(args)
+            combined_results.append(result)
             
     elif isinstance(args.n_process, int):
-        
-        from torch.multiprocessing import Pool
         
         input_args = [(args, eval_id) for eval_id in range(num_splits)]
         with Pool(processes=args.n_process) as p:
             combined_results = p.map(multiprocess_wrapper, input_args)
+            
+    print("Done training")
