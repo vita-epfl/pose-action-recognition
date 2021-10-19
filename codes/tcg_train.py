@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import torch
 import torchvision
 import torch.nn as nn
+import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as transforms
@@ -16,7 +17,7 @@ from torch.utils.data import DataLoader, Subset
 torch.autograd.set_detect_anomaly(True)
 
 from threading import Lock
-from multiprocessing import Pool
+from torch.multiprocessing import Pool
 from models import MonolocoModel, TempMonolocoModel
 from utils import compute_accuracy, get_all_predictions
 from tcg_dataset import TCGDataset, TCGSingleFrameDataset, tcg_collate_fn
