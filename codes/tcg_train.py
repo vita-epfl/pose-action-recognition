@@ -56,6 +56,7 @@ parser.add_argument("--return_pred", action="store_true", help="return predictio
 parser.add_argument("--n_process", type=int, default=None, help="number of process for multiprocessing, or None to run in serial")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
 parser.add_argument("--save_res", action="store_true", help="store training log and trained network")
+parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
 
 def multiprocess_wrapper(args_and_eval_id):
     # args_and_eval_id is a tuple with elements (args, eval_id)
@@ -124,10 +125,10 @@ def train_model(args):
             best_test_acc = test_acc
             best_weights = copy.deepcopy(model.state_dict())
         # scheduler.step(train_loss)
-        if args.n_process == None:
+        if args.n_process == None and args.verbose:
             # only print this in single frame mode, or the output will be unordered 
             print("Epoch {} Avg Loss {:.4f} Test Acc {:.4f}".format(epoch, train_loss, test_acc))
-        else:
+        elif args.verbose:
             print("Subprocess {} Epoch {} Avg Loss {:.4f} Test Acc {:.4f}".format(os.getpid(), epoch, train_loss, test_acc))
         train_loss_list.append(train_loss)
         test_acc_list.append(test_acc)
