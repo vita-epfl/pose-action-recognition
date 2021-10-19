@@ -3,16 +3,16 @@ import numpy as np
 import copy 
 import argparse
 import datetime
+import multiprocessing as mp
 import matplotlib.pyplot as plt
 
 import torch
 import torchvision
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, Subset
-
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, Subset
 torch.autograd.set_detect_anomaly(True)
 
 from threading import Lock
@@ -23,16 +23,24 @@ from tcg_dataset import TCGDataset, TCGSingleFrameDataset, tcg_collate_fn
 
 # define device 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-torch.backends.cudnn.enabled=False
+torch.backends.cudnn.enabled=True
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.deterministic = True
 
 # set value for some arguments 
 parser = argparse.ArgumentParser() 
-parser.add_argument("--data_dir", type=str, default="codes/data/", help="dataset folder, should end with /")
-parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures, should end with /")
-parser.add_argument("--weight_dir", type=str, default="codes/models/trained/", help="path to save trained models, end with /")
-parser.add_argument("--result_dir", type=str, default="codes/data/results/", help="training logs dir, end with /")
+# # local paths
+# parser.add_argument("--data_dir", type=str, default="codes/data/", help="dataset folder, should end with /")
+# parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures, should end with /")
+# parser.add_argument("--weight_dir", type=str, default="codes/models/trained/", help="path to save trained models, end with /")
+# parser.add_argument("--result_dir", type=str, default="codes/data/results/", help="training logs dir, end with /")
+
+# # remote paths 
+parser.add_argument("--data_dir", type=str, default="./data/tcg_dataset/", help="dataset folder, should end with /")
+parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
+parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models, end with /")
+parser.add_argument("--result_dir", type=str, default="./data/results/", help="training logs dir, end with /")
+
 parser.add_argument("--label_type", type=str, default="major", help="major for 4 classes, sub for 15 classes")
 parser.add_argument("--batch_size", type=int, default=128, help="batch size, use a small value (1) for sequence model")
 parser.add_argument("--num_epoch", type=int, default=50, help="number of training epochs")
@@ -47,6 +55,7 @@ parser.add_argument("--eval_type", type=str, default="xs", help="cross-subject (
 parser.add_argument("--return_pred", action="store_true", help="return prediction results for the whole test set")
 parser.add_argument("--n_process", type=int, default=None, help="number of process for multiprocessing, or None to run in serial")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
+parser.add_argument("--save_res", action="store_true", help="store training log and trained network")
 
 def multiprocess_wrapper(args_and_eval_id):
     # args_and_eval_id is a tuple with elements (args, eval_id)
@@ -118,6 +127,8 @@ def train_model(args):
         if args.n_process == None:
             # only print this in single frame mode, or the output will be unordered 
             print("Epoch {} Avg Loss {:.4f} Test Acc {:.4f}".format(epoch, train_loss, test_acc))
+        else:
+            print("Subprocess {} Epoch {} Avg Loss {:.4f} Test Acc {:.4f}".format(os.getpid(), epoch, train_loss, test_acc))
         train_loss_list.append(train_loss)
         test_acc_list.append(test_acc)
     
@@ -130,13 +141,15 @@ def train_model(args):
     save_info_path  = args.result_dir + model_prefix + task_prefix + time_prefix + ".txt"
     
     model.load_state_dict(best_weights)
-    torch.save(model.state_dict(), save_model_path)
     
-    with open(save_info_path, "w") as f:
-        f.write("label_{}_lr_{}_hidden_{}_drop_{}_stage_{}\n".format(args.label_type,
-                                args.lr, args.linear_size, args.dropout, args.n_stage))
-        for epoch, (loss, acc) in enumerate(zip(train_loss_list, test_acc_list)):
-            f.write("Epoch {} Avg Loss {:.4f} Test Acc {:.4f}\n".format(epoch, loss, acc))
+    if args.save_res:
+        torch.save(model.state_dict(), save_model_path)
+        
+        with open(save_info_path, "w") as f:
+            f.write("label_{}_lr_{}_hidden_{}_drop_{}_stage_{}\n".format(args.label_type,
+                                    args.lr, args.linear_size, args.dropout, args.n_stage))
+            for epoch, (loss, acc) in enumerate(zip(train_loss_list, test_acc_list)):
+                f.write("Epoch {} Avg Loss {:.4f} Test Acc {:.4f}\n".format(epoch, loss, acc))
             
     if args.n_process is not None:
         process_lock.acquire() 
@@ -148,12 +161,16 @@ def train_model(args):
         return results
     
 if __name__ == "__main__":
+    # start REAL sub process as specified here https://pytorch.org/docs/stable/notes/multiprocessing.html
+    mp.set_start_method('spawn')
+    
     # args = parser.parse_args(["--model_type", "sequence", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--n_process", "3"])
     args = parser.parse_args()
     args.output_size = TCGDataset.get_output_size(args.label_type)
     num_splits = TCGDataset.get_num_split(args.eval_type)
     
     if args.n_process is None:
+        print("Starting to run the experiment in serial")
         combined_results = []
         for idx in range(num_splits):
             args.eval_id = idx
@@ -161,7 +178,7 @@ if __name__ == "__main__":
             combined_results.append(result)
             
     elif isinstance(args.n_process, int):
-        
+        print("Starting to run the experiment with {} subprocesses".format(args.n_process))
         input_args = [(args, eval_id) for eval_id in range(num_splits)]
         with Pool(processes=args.n_process) as p:
             combined_results = p.map(multiprocess_wrapper, input_args)

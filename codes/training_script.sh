@@ -1,3 +1,4 @@
+#!/bin/bash
 #SBATCH --job-name TCG_training
 #SBATCH --account=vita
 #SBATCH --reservation=VITA
