@@ -33,13 +33,13 @@ parser = argparse.ArgumentParser()
 # parser.add_argument("--data_dir", type=str, default="codes/data/", help="dataset folder, should end with /")
 # parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures, should end with /")
 # parser.add_argument("--weight_dir", type=str, default="codes/models/trained/", help="path to save trained models, end with /")
-# parser.add_argument("--result_dir", type=str, default="codes/data/results/", help="training logs dir, end with /")
+# parser.add_argument("--result_dir", type=str, default="codes/out/results/", help="training logs dir, end with /")
 
-# # remote paths 
+# remote paths 
 parser.add_argument("--data_dir", type=str, default="./data/tcg_dataset/", help="dataset folder, should end with /")
 parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
 parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models, end with /")
-parser.add_argument("--result_dir", type=str, default="./data/results/", help="training logs dir, end with /")
+parser.add_argument("--result_dir", type=str, default="./out/results/", help="training logs dir, end with /")
 
 parser.add_argument("--label_type", type=str, default="major", help="major for 4 classes, sub for 15 classes")
 parser.add_argument("--batch_size", type=int, default=128, help="batch size, use a small value (1) for sequence model")
