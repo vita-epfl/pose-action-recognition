@@ -3,7 +3,6 @@ import numpy as np
 import copy 
 import argparse
 import datetime
-import multiprocessing as mp
 import matplotlib.pyplot as plt
 
 import torch
@@ -19,7 +18,7 @@ torch.autograd.set_detect_anomaly(True)
 from threading import Lock
 from torch.multiprocessing import Pool
 from models import MonolocoModel, TempMonolocoModel
-from utils import compute_accuracy, get_all_predictions
+from utils import compute_accuracy, get_all_predictions, get_eval_metrics
 from tcg_dataset import TCGDataset, TCGSingleFrameDataset, tcg_collate_fn
 
 # define device 
@@ -158,7 +157,7 @@ def train_model(args):
         process_lock.release()
         
     if args.return_pred:
-        results, _ = get_all_predictions(model, testloader)
+        results = get_all_predictions(model, testloader)
         return results
     
 if __name__ == "__main__":
@@ -185,3 +184,10 @@ if __name__ == "__main__":
             combined_results = p.map(multiprocess_wrapper, input_args)
             
     print("Done training")
+    
+    print("Begin to calculate various metrics over all the train-test splits")
+    acc, f1, jac, cfx = get_eval_metrics(combined_results)
+    print("Average results over all the splits:")
+    print("accuracy {:.4f} f1 score {:.4f} Jaccard score {:.4f}".format(acc, f1, jac))
+    print("Confusion matrix (rows are true label, columns are predicted):")
+    print(cfx)

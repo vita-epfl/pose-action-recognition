@@ -1,6 +1,9 @@
 import torch 
+import numpy as np 
 import torch.nn as nn 
 from torch.utils.data import DataLoader
+
+from sklearn.metrics import f1_score, jaccard_score, confusion_matrix, accuracy_score
 
 # This function computes the accuracy on the test dataset
 def compute_accuracy(model:nn.Module, testloader:DataLoader):
@@ -46,3 +49,25 @@ def get_all_predictions(model:nn.Module, testloader:DataLoader):
     all_label_tensor = torch.cat(label_list, dim=0)
     
     return all_result_tensor.cpu().detach().numpy(), all_label_tensor.cpu().detach().numpy()
+
+def get_eval_metrics(combined_results):
+    """ combined_results: a list of (predictions, labels) for all the testsets as defined 
+                        in TCGDataset.train_test_sets
+    """
+    acc_list, f1_list, jac_list, cfx_list = [[] for _ in range(4)]
+    for split_result in combined_results:
+        pred, label = split_result
+        acc = accuracy_score(y_true=label, y_pred=pred)
+        f1 = f1_score(y_true=label, y_pred=pred, average='macro')
+        jac = jaccard_score(y_true=label, y_pred=pred, average='macro')
+        cfx = confusion_matrix(y_true=label, y_pred=pred)
+        acc_list.append(acc)
+        f1_list.append(f1)
+        jac_list.append(jac)
+        cfx_list.append(cfx)
+    
+    avg_acc, avg_f1, avg_jac = np.mean(acc_list), np.mean(f1_list), np.mean(jac_list)
+    avg_cfx = np.mean(cfx_list, axis=0)
+    
+    return  avg_acc, avg_f1, avg_jac, avg_cfx
+    
