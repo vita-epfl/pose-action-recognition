@@ -1,0 +1,3 @@
+// tell the python language server to exclude paths with too many files
+// otherwise autocomplete may fail 
+{"exclude": ["./codes/data"]} 

@@ -1,6 +1,7 @@
 codes/data
 codes/models/trained/*
 codes/datasets
+codes/titan_clip
 out/
 *.ipynb_checkpoints
 *__pycache__
