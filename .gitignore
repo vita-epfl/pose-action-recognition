@@ -3,6 +3,7 @@ codes/models/trained/*
 codes/datasets
 codes/titan_clip
 out/
+downloads/
 *.ipynb_checkpoints
 *__pycache__
 *.vscode
