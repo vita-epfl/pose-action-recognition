@@ -123,24 +123,37 @@ class Sequence(object):
 
 class TITANDataset(Dataset):
     
-    def __init__(self, output_dir=None, anno_dir=None, pickle_dir=None, use_pickle=True, split="train") -> None:
+    def __init__(self, output_dir=None, dataset_dir=None, pickle_dir=None, use_pickle=True, split="train") -> None:
         """
 
         Args:
             output_dir ([str], optional): [pifpaf result dir]. Defaults to None.
-            anno_dir ([str], optional): [titan annotation dir]. Defaults to None.
+            dataset_dir ([str], optional): [titan dataset root dir]. Defaults to None.
             pickle_dir ([str], optional): [the folder that stores the preprocessed pickle file, from `construct_from_pifpaf_results`]. Defaults to None.
             use_pickle (bool, optional): [description]. Defaults to True.
             split: 'train', 'val' or 'test'
         """
         super().__init__()
+        self.split = split
         self.seqs:List[Sequence] = []
         if pickle_dir is not None and use_pickle:
             print("loading preprocessed titan dataset from pickle file")
             self.seqs = self.load_from_pickle(pickle_dir=pickle_dir)
-        elif os.path.exists(output_dir) and os.path.exists(anno_dir):
-            processed_seqs = construct_from_pifpaf_results(output_dir, anno_dir)
+        elif os.path.exists(output_dir) and os.path.exists(dataset_dir):
+            processed_seqs = construct_from_pifpaf_results(output_dir, dataset_dir)
             self.seqs = processed_seqs
+        else:
+            print("Failed to load pose sequences")
+            
+        if len(self.seqs) > 0:
+            name_mapping = {"train": "train_set", "val": "val_set", "test":"test_set"}
+            split_name = name_mapping.get(self.split, "train_set")
+            split_file = "{}/splits/{}.txt".format(dataset_dir, split_name)
+            with open(split_file, "r") as f:
+                valid_seqs = f.readlines()
+            valid_seqs = [name.rstrip() for name in valid_seqs]
+            valid_seqs = sorted(valid_seqs, key=lambda item: int(item.split(sep="_")[-1]))
+            self.seqs = [seq for seq in self.seqs if seq.seq_name in valid_seqs]
         
     def __len__(self):
         return len(self.seqs) 
@@ -212,7 +225,7 @@ def get_all_clip_names(output_dir):
     clips = sorted(clips, key=lambda item: int(item.split(sep="_")[-1]))
     return clips
 
-def construct_from_pifpaf_results(output_dir, anno_dir, save_dir=None, debug=True):
+def construct_from_pifpaf_results(output_dir, dataset_dir, save_dir=None, debug=True):
     
     processed_seqs = []
     
@@ -223,7 +236,7 @@ def construct_from_pifpaf_results(output_dir, anno_dir, save_dir=None, debug=Tru
         # create a container for frame data in a sequence 
         seq_container = Sequence(seq_name=clip)
         
-        anno_file = anno_dir + clip + ".csv"
+        anno_file = dataset_dir + "titan_0_4/" + clip + ".csv"
         seq_annos = pd.read_csv(anno_file)
         groups = seq_annos.groupby("frames")
         frame_names = sorted(list(groups.indices.keys())) 
@@ -270,7 +283,7 @@ def construct_from_pifpaf_results(output_dir, anno_dir, save_dir=None, debug=Tru
         if debug and clip_idx == 3:
             break
             
-    if save_dir is not None:
+    if not debug and save_dir is not None:
         save_path = save_dir + "/" + "TITAN_pifpaf.pkl"
         with open(save_path, "wb") as f:
             pickle.dump(processed_seqs, f)
@@ -305,30 +318,33 @@ def get_titan_att_types(output_dir, anno_dir):
 def test_construct_dataset():
     base_dir = "codes"
     output_dir = "{}/out/pifpaf_results/".format(base_dir)
-    anno_dir = "{}/data/titan_annotations/".format(base_dir)
+    dataset_dir = "{}/data/".format(base_dir)
     save_dir = "{}/out/".format(base_dir)
     # get_titan_att_types(output_dir, anno_dir)
     
-    dataset = TITANDataset(output_dir, anno_dir)
-    construct_from_pifpaf_results(output_dir, anno_dir, save_dir, debug=True)
-    dataset = TITANDataset(pickle_dir=save_dir, use_pickle=True)
+    dataset = TITANDataset(output_dir, dataset_dir, split="train")
+    construct_from_pifpaf_results(output_dir, dataset_dir, save_dir, debug=True)
+    dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True, split="test")
 
-def pickle_dataset():
+def pickle_all_sequences():
     base_dir = "codes"
     output_dir = "{}/out/pifpaf_results/".format(base_dir)
-    anno_dir = "{}/data/titan_annotations/".format(base_dir)
+    dataset_dir = "{}/data/".format(base_dir)
     save_dir = "{}/out/".format(base_dir)
-    construct_from_pifpaf_results(output_dir, anno_dir, save_dir, debug=False)
+    construct_from_pifpaf_results(output_dir, dataset_dir, save_dir, debug=False)
 
 if __name__ == "__main__":
     
-    # test_construct_dataset()
-    # pickle_dataset()
+    test_construct_dataset()
+    # pickle_all_sequences()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
+    
     base_dir = "codes"
+    output_dir = "{}/out/pifpaf_results/".format(base_dir)
+    dataset_dir = "{}/data/".format(base_dir)
     save_dir = "{}/out/".format(base_dir)
     
-    dataset = TITANDataset(pickle_dir=save_dir, use_pickle=True)
+    dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True)
     simple_dataset = TITANSimpleDataset(dataset)
     dataloader = DataLoader(simple_dataset, batch_size=2, shuffle=True, collate_fn=TITANSimpleDataset.collate)
     
