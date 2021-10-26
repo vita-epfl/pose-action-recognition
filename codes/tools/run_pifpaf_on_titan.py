@@ -1,4 +1,5 @@
-
+""" run pifpaf prediction on TITAN dataset
+"""
 import os 
 import glob 
 import subprocess
