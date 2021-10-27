@@ -22,7 +22,7 @@ clips = sorted(clips, key=lambda item: int(item.split(sep="_")[-1]))
 #     if not os.path.exists(clip_save_path):
 #         os.mkdir(clip_save_path)
 #     command = ["python", "-m", "openpifpaf.predict", 
-#                "{}/titan_clip/example.png".format(base_dir), 
+#                "{}/data/titan_clip/example.png".format(base_dir), 
 #                "--glob", "\"{}/data/TITAN/images_anonymized/{}/images/*.png\"".format(base_dir, clip), 
 #                "--checkpoint=shufflenetv2k30",  
 #                "--long-edge",  "1920",
@@ -43,7 +43,7 @@ def process_one_seq(seq_idx):
     if not os.path.exists(clip_save_path):
         os.mkdir(clip_save_path)
     command = ["python", "-m", "openpifpaf.predict", 
-               "{}/titan_clip/example.png".format(base_dir), 
+               "{}/data/titan_clip/example.png".format(base_dir), 
                "--glob", "\"{}/data/TITAN/images_anonymized/{}/images/*.png\"".format(base_dir, clip), 
                "--checkpoint=shufflenetv2k30",  
                "--long-edge",  "1920",

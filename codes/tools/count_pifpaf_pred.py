@@ -1,7 +1,7 @@
 """ count how many person pifpaf can detect when setting different `--long-edge`
 """
 # first run this
-# sbatch python_wrapper.sh -m openpifpaf.predict titan_clip/example.png --glob "./data/TITAN/images_anonymized/clip*15/images/*.png" --checkpoint=shufflenetv2k30  --long-edge 1920 --force-complete-pose
+# sbatch python_wrapper.sh -m openpifpaf.predict data/titan_clip/example.png --glob "./data/TITAN/images_anonymized/clip*15/images/*.png" --checkpoint=shufflenetv2k30  --long-edge 1920 --force-complete-pose
 # and then look at the output log  
 import re 
 import numpy as np 
