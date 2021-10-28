@@ -5,9 +5,9 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks-per-node=1
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 #SBATCH --qos=gpu
-#SBATCH --time 36:00:00
+#SBATCH --time 18:00:00
 #SBATCH --output "out/slurm-%A_%a.log"
 #SBATCH --mem=0
 

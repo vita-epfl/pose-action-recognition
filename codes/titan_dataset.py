@@ -228,10 +228,12 @@ def get_all_clip_names(pifpaf_out):
 def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=True):
     
     processed_seqs = []
-    
+    total_number_list, detected_list = [], [] # how many annotated persons, how many detected 
     clips = get_all_clip_names(pifpaf_out)
     # process all sequences 
     for clip_idx, clip in enumerate(clips):
+        
+        person_in_seq, detected_in_seq = 0, 0
         print("Processing {}".format(clip))
         # create a container for frame data in a sequence 
         seq_container = Sequence(seq_name=clip)
@@ -251,10 +253,16 @@ def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=
             frame_pred_file = "{}/{}/{}.predictions.json".format(pifpaf_out, clip, frame)
             with open(frame_pred_file) as f:
                 frame_pifpaf_pred = json.load(f)
+                
+            print("pifpaf detects {} person detected in {} {} and ground truth has {}".format(
+                    len(frame_pifpaf_pred), clip, frame, len(frame_gt_annos)))
+            person_in_seq += len(frame_pifpaf_pred)
+            detected_in_seq += len(frame_gt_annos)
+            
             if len(frame_pifpaf_pred) == 0:
-                print("no person detected in {} {} but ground truth has {}".format(clip, frame, len(frame_gt_annos)))
                 seq_container.frames.append(frame_container) # append an empty 
                 continue 
+            
             # print(frame_gt_annos)
             # print(frame_pifpaf_pred)
             gt_bbox = frame_gt_annos[["left", "top", "width", "height"]].to_numpy() # (x, y, w, h) 
@@ -278,11 +286,16 @@ def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=
                     raise NotImplementedError
             
             seq_container.frames.append(frame_container)
+        
         processed_seqs.append(seq_container)
+        total_number_list.append(person_in_seq)
+        detected_list.append(detected_in_seq)
         
         if debug and clip_idx == 3:
             break
-            
+    
+    print("#Total Annotated persons: {} #Total detected persons: {}".format(sum(total_number_list), sum(detected_list)))
+    
     if not debug and save_dir is not None:
         save_path = save_dir + "/" + "TITAN_pifpaf.pkl"
         with open(save_path, "wb") as f:
