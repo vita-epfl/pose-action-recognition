@@ -256,8 +256,8 @@ def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=
                 
             print("pifpaf detects {} person detected in {} {} and ground truth has {}".format(
                     len(frame_pifpaf_pred), clip, frame, len(frame_gt_annos)))
-            person_in_seq += len(frame_pifpaf_pred)
-            detected_in_seq += len(frame_gt_annos)
+            person_in_seq += len(frame_gt_annos)
+            detected_in_seq += len(frame_pifpaf_pred)
             
             if len(frame_pifpaf_pred) == 0:
                 seq_container.frames.append(frame_container) # append an empty 
@@ -327,11 +327,19 @@ def get_titan_att_types(pifpaf_out, anno_dir):
         att_list.append("none of the above") # move 'none of the above' to the end 
         att_dict = {att_list[idx]:idx for idx in range(len(att_list))}
         print(att_dict)
+        
+def pickle_all_sequences():
+    base_dir = "codes"
+    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
+    dataset_dir = "{}/data/TITAN/".format(base_dir)
+    save_dir = "{}/out/".format(base_dir)
+    construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=False)
+    
 
 def test_construct_dataset():
     base_dir = "codes"
     pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/".format(base_dir)
+    dataset_dir = "{}/data/TITAN/".format(base_dir)
     save_dir = "{}/out/".format(base_dir)
     # get_titan_att_types(pifpaf_out, anno_dir)
     
@@ -339,28 +347,20 @@ def test_construct_dataset():
     construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=True)
     dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True, split="test")
 
-def pickle_all_sequences():
-    base_dir = "codes"
-    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/".format(base_dir)
-    save_dir = "{}/out/".format(base_dir)
-    construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=False)
 
-if __name__ == "__main__":
+
+def test_forward():
     
-    # test_construct_dataset()
-    # pickle_all_sequences()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
-    
     base_dir = "codes"
     pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/".format(base_dir)
+    dataset_dir = "{}/data/TITAN".format(base_dir)
     save_dir = "{}/out/".format(base_dir)
-    
+
     dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True)
     simple_dataset = TITANSimpleDataset(dataset)
     dataloader = DataLoader(simple_dataset, batch_size=2, shuffle=True, collate_fn=TITANSimpleDataset.collate)
-    
+
     model = MultiHeadMonoLoco(input_size=17*3).to(device)
     criterion = MultiHeadClfLoss()
     for poses, labels in dataloader:
@@ -368,3 +368,11 @@ if __name__ == "__main__":
         pred = model(poses)
         loss = criterion(pred, labels)
         print(loss)
+    
+if __name__ == "__main__":
+    
+    # test_construct_dataset()
+    pickle_all_sequences()
+    # test_forward()
+    
+
