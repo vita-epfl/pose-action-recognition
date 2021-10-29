@@ -28,22 +28,24 @@ torch.backends.cudnn.deterministic = True
 
 # set value for some arguments 
 parser = argparse.ArgumentParser() 
-# local paths
-parser.add_argument("--pifpaf_out", type=str, default="codes/out/pifpaf_results/", help="pifpaf output folder, end with /")
-parser.add_argument("--dataset_dir", type=str, default="codes/data/", help="original TITAN dataset folder, should end with /")
-parser.add_argument("--save_dir", type=str, default="codes/out/", help="saved pickle file of the poses, should end with /")
-parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures, should end with /")
-parser.add_argument("--weight_dir", type=str, default="codes/models/trained/", help="path to save trained models, end with /")
-parser.add_argument("--result_dir", type=str, default="codes/out/results/", help="training logs dir, end with /")
+
+# # local paths
+# parser.add_argument("--pifpaf_out", type=str, default="codes/out/pifpaf_results/", help="pifpaf output folder, end with /")
+# parser.add_argument("--dataset_dir", type=str, default="codes/data/", help="original TITAN dataset folder, should end with /")
+# parser.add_argument("--save_dir", type=str, default="codes/out/", help="saved pickle file of the poses, should end with /")
+# parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures, should end with /")
+# parser.add_argument("--weight_dir", type=str, default="codes/models/trained/", help="path to save trained models, end with /")
+# parser.add_argument("--result_dir", type=str, default="codes/out/results/", help="training logs dir, end with /")
 
 # # remote paths 
-# parser.add_argument("--data_dir", type=str, default="./data/tcg_dataset/", help="dataset folder, should end with /")
-# parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
-# parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models, end with /")
-# parser.add_argument("--result_dir", type=str, default="./out/results/", help="training logs dir, end with /")
+parser.add_argument("--pifpaf_out", type=str, default="./out/pifpaf_results/", help="pifpaf output folder, end with /")
+parser.add_argument("--dataset_dir", type=str, default="./data/TITAN/", help="original TITAN dataset folder, should end with /")
+parser.add_argument("--save_dir", type=str, default="./out/", help="saved pickle file of the poses, should end with /")
+parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
+parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models, end with /")
+parser.add_argument("--result_dir", type=str, default="./out/results/", help="training logs dir, end with /")
 
-parser.add_argument("--split", type=str, default="train",choices=["train", "val", "test"], help="data split")
-parser.add_argument("--batch_size", type=int, default=128, help="batch size")
+parser.add_argument("--batch_size", type=int, default=512, help="batch size")
 parser.add_argument("--num_epoch", type=int, default=50, help="number of training epochs")
 parser.add_argument("--lr", type=float, default=0.002, help="learning rate") 
 parser.add_argument("--workers", type=int, default=0, help="number of workers for dataloader") 
@@ -51,7 +53,6 @@ parser.add_argument("--input_size", type=int, default=51, help="input size, numb
 parser.add_argument("--linear_size", type=int, default=256, help="size of hidden linear layer")
 parser.add_argument("--dropout", type=float, default=0.2, help="dropout rate")
 parser.add_argument("--n_stage", type=int, default=3, help="number of stages in a monoloco model")
-
 
 # parser.add_argument("--return_pred", action="store_true", help="return prediction results for the whole test set")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
@@ -118,7 +119,7 @@ def get_eval_metrics(result_list, label_list, n_classes=[4, 7, 9, 13, 4]):
 
 if __name__ == "__main__":
     
-    args = parser.parse_args(["--batch_size","256", "--num_epoch", "2"])
+    args = parser.parse_args()
     args.output_size = [4, 7, 9, 13, 4]
     # prepare train, validation and test splits, as well as the dataloaders 
     trainset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "train")

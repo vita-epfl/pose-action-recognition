@@ -7,7 +7,7 @@ import multiprocessing as mp
 from multiprocessing import Pool
 from openpifpaf import Predictor
 
-LOCAL_RUN = True
+LOCAL_RUN = False
 base_dir = "codes" if LOCAL_RUN else "."
 output_dir = "{}/out/pifpaf_results/".format(base_dir)
 
@@ -43,7 +43,7 @@ def process_one_seq(seq_idx):
     if not os.path.exists(clip_save_path):
         os.mkdir(clip_save_path)
     command = ["python", "-m", "openpifpaf.predict", 
-               "{}/data/titan_clip/example.png".format(base_dir), 
+               "{}/out/titan_clip/example.png".format(base_dir), 
                "--glob", "\"{}/data/TITAN/images_anonymized/{}/images/*.png\"".format(base_dir, clip), 
                "--checkpoint=shufflenetv2k30",  
                "--long-edge",  "1920",
