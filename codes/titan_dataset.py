@@ -17,7 +17,7 @@ from utils.losses import MultiHeadClfLoss
 np.set_printoptions(precision=3, suppress=True)
 
 class Person(object):
-    4, 7, 9, 13, 4
+    # 4, 7, 9, 13, 4
     # obtained with get_titan_att_types
     communicative_dict = {'looking into phone': 0,
                           'talking in group': 1,
@@ -65,7 +65,9 @@ class Person(object):
         super().__init__()
         # locations
         self.object_track_id = int(gt_anno['obj_track_id'])
-        self.key_points = np.array(pred['keypoints']).reshape(-1, 3) # x, y, confidence
+        x_y_conf = np.array(pred['keypoints']).reshape(-1, 3) # x, y, confidence
+        self.key_points = x_y_conf[:, 0:2]
+        self.kp_confidence = x_y_conf[:, 2:]
         self.gt_box = [gt_anno[key] for key in ["left", "top", "width", "height"]]
         self.pred_box = pred['bbox']
         self.confidence = pred['score']
