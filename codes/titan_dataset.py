@@ -3,6 +3,8 @@ import json
 import glob
 import torch
 import pickle
+import argparse 
+
 import numpy as np
 import pandas as pd 
 import torch.nn as nn
@@ -65,9 +67,9 @@ class Person(object):
         super().__init__()
         # locations
         self.object_track_id = int(gt_anno['obj_track_id'])
-        x_y_conf = np.array(pred['keypoints']).reshape(-1, 3) # x, y, confidence
-        self.key_points = x_y_conf[:, 0:2]
-        self.kp_confidence = x_y_conf[:, 2:]
+        x_y_conf = np.array(pred['keypoints']).reshape(-1, 3)
+        self.key_points = x_y_conf[:, :2] # x, y
+        self.kp_confidence = x_y_conf[:, 2]
         self.gt_box = [gt_anno[key] for key in ["left", "top", "width", "height"]]
         self.pred_box = pred['bbox']
         self.confidence = pred['score']
@@ -255,39 +257,37 @@ def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=
             frame_pred_file = "{}/{}/{}.predictions.json".format(pifpaf_out, clip, frame)
             with open(frame_pred_file) as f:
                 frame_pifpaf_pred = json.load(f)
-                
-            print("pifpaf detects {} person detected in {} {} and ground truth has {}".format(
-                    len(frame_pifpaf_pred), clip, frame, len(frame_gt_annos)))
-            person_in_seq += len(frame_pifpaf_pred)
-            detected_in_seq += len(frame_gt_annos)
+
+            matches = [] # try to find matches if pifpaf detects some person 
+            if len(frame_pifpaf_pred) != 0:          
+                # print(frame_gt_annos)
+                # print(frame_pifpaf_pred)
+                gt_bbox = frame_gt_annos[["left", "top", "width", "height"]].to_numpy() # (x, y, w, h) 
+                # print(gt_bbox)
+                gt_bbox[:, 2:4] = gt_bbox[:, 0:2] + gt_bbox[:, 2:4] # (x1, y1, x2, y2)
+                # print(gt_bbox)
+                frame_pifpaf_pred = sorted(frame_pifpaf_pred, key=lambda item: item["score"], reverse=True)
+                # (x, y, w, h) 
+                pred_bbox = np.array([pred["bbox"]+[pred["score"]] for pred in frame_pifpaf_pred])
+                pred_bbox[:, 2:4] = pred_bbox[:, 0:2] + pred_bbox[:, 2:4] # (x1, y1, x2, y2)
+                matches = get_iou_matches(pred_bbox.tolist(), gt_bbox.tolist())
             
-            if len(frame_pifpaf_pred) == 0:
-                seq_container.frames.append(frame_container) # append an empty 
-                continue 
-            
-            # print(frame_gt_annos)
-            # print(frame_pifpaf_pred)
-            gt_bbox = frame_gt_annos[["left", "top", "width", "height"]].to_numpy() # (x, y, w, h) 
-            # print(gt_bbox)
-            gt_bbox[:, 2:4] = gt_bbox[:, 0:2] + gt_bbox[:, 2:4] # (x1, y1, x2, y2)
-            # print(gt_bbox)
-            frame_pifpaf_pred = sorted(frame_pifpaf_pred, key=lambda item: item["score"], reverse=True)
-            # (x, y, w, h) 
-            pred_bbox = np.array([pred["bbox"]+[pred["score"]] for pred in frame_pifpaf_pred])
-            pred_bbox[:, 2:4] = pred_bbox[:, 0:2] + pred_bbox[:, 2:4] # (x1, y1, x2, y2)
-            matches = get_iou_matches(pred_bbox.tolist(), gt_bbox.tolist())
-            
-            # process each objects in a frame 
-            for pred_id, gt_id in matches:
-                obj_pifpaf_pred = frame_pifpaf_pred[pred_id]
-                obj_gt_anno = frame_gt_annos.iloc[gt_id].to_dict()
-                if obj_gt_anno["label"] == "person":
-                    person_container = Person(pred=obj_pifpaf_pred, gt_anno=obj_gt_anno)
-                    frame_container.persons.append(person_container) # vars will turn the container into a dict 
-                elif obj_gt_anno["label"].startswith("vehicle"):
-                    raise NotImplementedError
-            
-            seq_container.frames.append(frame_container)
+                # process each objects in a frame 
+                for pred_id, gt_id in matches:
+                    obj_pifpaf_pred = frame_pifpaf_pred[pred_id]
+                    obj_gt_anno = frame_gt_annos.iloc[gt_id].to_dict()
+                    if obj_gt_anno["label"] == "person":
+                        person_container = Person(pred=obj_pifpaf_pred, gt_anno=obj_gt_anno)
+                        frame_container.persons.append(person_container) # vars will turn the container into a dict 
+                    elif obj_gt_anno["label"].startswith("vehicle"):
+                        raise NotImplementedError
+                    
+            print("pifpaf detects {} person in {} {} and ground truth has {}".format(
+                    len(matches), clip, frame, len(frame_gt_annos)))
+            person_in_seq += len(frame_gt_annos)
+            detected_in_seq += len(matches)
+
+            seq_container.frames.append(frame_container) # append an empty 
         
         processed_seqs.append(seq_container)
         total_number_list.append(person_in_seq)
@@ -329,40 +329,44 @@ def get_titan_att_types(pifpaf_out, anno_dir):
         att_list.append("none of the above") # move 'none of the above' to the end 
         att_dict = {att_list[idx]:idx for idx in range(len(att_list))}
         print(att_dict)
-
-def test_construct_dataset():
-    base_dir = "codes"
+        
+def pickle_all_sequences(args):
+    base_dir = args.base_dir
     pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/".format(base_dir)
+    dataset_dir = "{}/data/TITAN/".format(base_dir)
     save_dir = "{}/out/".format(base_dir)
-    # get_titan_att_types(pifpaf_out, anno_dir)
+    construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=False)
+    
+def calc_anno_distribution(args):
+    base_dir = args.base_dir
+    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
+    dataset_dir = "{}/data/TITAN/".format(base_dir)
+    save_dir = "{}/out/".format(base_dir)
+    pass 
+
+
+def test_construct_dataset(args):
+    base_dir = args.base_dir
+    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
+    dataset_dir = "{}/data/TITAN/".format(base_dir)
+    save_dir = "{}/out/".format(base_dir)
     
     dataset = TITANDataset(pifpaf_out, dataset_dir, split="train")
     construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=True)
     dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True, split="test")
 
-def pickle_all_sequences():
-    base_dir = "codes"
-    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/".format(base_dir)
-    save_dir = "{}/out/".format(base_dir)
-    construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=False)
-
-if __name__ == "__main__":
+def test_forward(args):
     
-    # test_construct_dataset()
-    # pickle_all_sequences()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
-    
-    base_dir = "codes"
+    base_dir = args.base_dir
     pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/".format(base_dir)
+    dataset_dir = "{}/data/TITAN".format(base_dir)
     save_dir = "{}/out/".format(base_dir)
-    
+
     dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True)
     simple_dataset = TITANSimpleDataset(dataset)
     dataloader = DataLoader(simple_dataset, batch_size=2, shuffle=True, collate_fn=TITANSimpleDataset.collate)
-    
+
     model = MultiHeadMonoLoco(input_size=17*3).to(device)
     criterion = MultiHeadClfLoss()
     for poses, labels in dataloader:
@@ -370,3 +374,22 @@ if __name__ == "__main__":
         pred = model(poses)
         loss = criterion(pred, labels)
         print(loss)
+    
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser() 
+    parser.add_argument("--base_dir", type=str, default="./", help="default root working directory")
+    parser.add_argument("--function", type=str, default="None", help="which function to call")
+    args = parser.parse_args()
+
+    function_dict = {"annotation": get_titan_att_types, 
+                     "pickle": pickle_all_sequences, 
+                     "dist":calc_anno_distribution}
+
+    if args.function in function_dict.keys():
+        function_dict.get(args.function)(args)
+
+    # test_construct_dataset(args)
+    # test_forward(args)
+
+
