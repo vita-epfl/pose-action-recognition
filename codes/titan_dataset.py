@@ -19,7 +19,7 @@ from utils.losses import MultiHeadClfLoss
 np.set_printoptions(precision=3, suppress=True)
 
 class Person(object):
-    4, 7, 9, 13, 4
+    # 4, 7, 9, 13, 4
     # obtained with get_titan_att_types
     communicative_dict = {'looking into phone': 0,
                           'talking in group': 1,
