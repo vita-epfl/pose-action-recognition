@@ -18,7 +18,7 @@ torch.autograd.set_detect_anomaly(True)
 from threading import Lock
 from torch.multiprocessing import Pool
 from models import MonolocoModel, TempMonolocoModel
-from utils import compute_accuracy, get_all_predictions, get_eval_metrics
+from utils.tcg_metrics import compute_accuracy, get_all_predictions, get_eval_metrics
 from tcg_dataset import TCGDataset, TCGSingleFrameDataset, tcg_collate_fn
 
 # define device 
