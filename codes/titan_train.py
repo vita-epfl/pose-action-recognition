@@ -131,9 +131,10 @@ if __name__ == "__main__":
     testset = TITANSimpleDataset(testset)
     
     if args.debug:
-        trainset = Subset(trainset, indices=range(5000))
-        valset = Subset(trainset, indices=range(5000))
-        testset = Subset(trainset, indices=range(5000))
+        args.num_epoch = 2
+        trainset = Subset(trainset, indices=range(1000))
+        valset = Subset(trainset, indices=range(1000))
+        testset = Subset(trainset, indices=range(1000))
         
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, 
                              num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
@@ -182,9 +183,12 @@ if __name__ == "__main__":
     
     action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
     for idx, layer in enumerate(action_hierarchy):
+        print("")
         print("For {} actions accuracy {:.4f} f1 score {:.4f} Jaccard score {:.4f}".format(layer, acc[idx], f1[idx], jac[idx]))
         print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
+        print("The corresponding classes are {}".format(list(getattr(Person, action_hierarchy).keys())))
         print(cfx[idx])
+        print("")
         
     
     
