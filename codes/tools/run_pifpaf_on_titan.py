@@ -9,12 +9,12 @@ from multiprocessing import Pool
 from openpifpaf import Predictor
 
 parser = argparse.ArgumentParser() 
-parser.add_argument("--base_dir", type=int, default="./")
+parser.add_argument("--base_dir", type=str, default="./")
 parser.add_argument("--long_edge", type=int, default=1920)
-args = parser.parse_args()
+args = parser.parse_args() # ["--base_dir", "codes", "--long_edge", "3333"]
 
 base_dir = args.base_dir
-output_dir = "{}/out/pifpaf_results_{}/".format(base_dir)
+output_dir = "{}/out/pifpaf_results_{}/".format(base_dir, args.long_edge)
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
