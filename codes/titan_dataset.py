@@ -135,7 +135,7 @@ class TITANDataset(Dataset):
             dataset_dir ([str], optional): [titan dataset root dir]. Defaults to None.
             pickle_dir ([str], optional): [the folder that stores the preprocessed pickle file, from `construct_from_pifpaf_results`]. Defaults to None.
             use_pickle (bool, optional): [description]. Defaults to True.
-            split: 'train', 'val' or 'test'
+            split: 'all', 'train', 'val' or 'test'
         """
         super().__init__()
         self.split = split
@@ -148,10 +148,14 @@ class TITANDataset(Dataset):
             self.seqs = processed_seqs
         else:
             print("Failed to load pose sequences")
-            
-        if len(self.seqs) > 0:
+        
+        if split == "all": # keep all sequences
+            return 
+        
+        if len(self.seqs) > 0: # get one split from it
             name_mapping = {"train": "train_set", "val": "val_set", "test":"test_set"}
             split_name = name_mapping.get(self.split, "train_set")
+            print("loading the {} of TITAN".format(split_name))
             split_file = "{}/splits/{}.txt".format(dataset_dir, split_name)
             with open(split_file, "r") as f:
                 valid_seqs = f.readlines()
@@ -230,7 +234,21 @@ def get_all_clip_names(pifpaf_out):
     return clips
 
 def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=True):
-    
+    """ read the pifpaf prediction results (json files), match the detections with ground truth,
+        and pack the detections first by frame, then by sequence into a pickle file
+        
+    Args:
+        pifpaf_out ([type]): [location of the pifpaf detection results]
+        dataset_dir ([type]): [titan dataset folder]
+        save_dir ([type], optional): [where to save the pickle file]. Defaults to None.
+        debug (bool, optional): [if true, then test with 3 sequences]. Defaults to True.
+
+    Raises:
+        NotImplementedError: [description]
+
+    Returns:
+        processed sequences [list]: [a list of sequences]
+    """
     processed_seqs = []
     total_number_list, detected_list = [], [] # how many annotated persons, how many detected 
     clips = get_all_clip_names(pifpaf_out)
@@ -302,17 +320,23 @@ def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=
         save_path = save_dir + "/" + "TITAN_pifpaf.pkl"
         with open(save_path, "wb") as f:
             pickle.dump(processed_seqs, f)
-        return 0
+        return processed_seqs
     else:
         return processed_seqs
-             
-def get_titan_att_types(pifpaf_out, anno_dir):
+
+def folder_names(base_dir):
+    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
+    dataset_dir = "{}/data/TITAN/".format(base_dir)
+    save_dir = "{}/out/".format(base_dir)
+    return pifpaf_out, dataset_dir, save_dir
     
+def get_titan_att_types(args):
+    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
     clips = get_all_clip_names(pifpaf_out)
     communicative, complex_context, atomic, simple_context, transporting = [set() for _ in range(5)]
     
     for clip in clips:
-        anno_file = anno_dir + clip + ".csv"
+        anno_file = dataset_dir + "titan_0_4/" + clip + ".csv"
         seq_annos = pd.read_csv(anno_file)
         seq_annos = seq_annos[seq_annos["label"]=="person"] # just keep the annotation of person 
         communicative.update(set(seq_annos['attributes.Communicative'].to_list()))
@@ -322,34 +346,56 @@ def get_titan_att_types(pifpaf_out, anno_dir):
         transporting.update(set(seq_annos['attributes.Transporting'].to_list()))
 
     att_hierarchy = [communicative, complex_context, atomic, simple_context, transporting]
+    att_dict_list = []
     for att_set in att_hierarchy:
         # print(att_set)
         att_set.remove("none of the above")
         att_list = sorted(list(att_set))
         att_list.append("none of the above") # move 'none of the above' to the end 
         att_dict = {att_list[idx]:idx for idx in range(len(att_list))}
+        att_dict_list.append(att_dict)
         print(att_dict)
+    
+    return att_dict_list
         
 def pickle_all_sequences(args):
-    base_dir = args.base_dir
-    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/TITAN/".format(base_dir)
-    save_dir = "{}/out/".format(base_dir)
+    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
     construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=False)
-    
-def calc_anno_distribution(args):
-    base_dir = args.base_dir
-    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/TITAN/".format(base_dir)
-    save_dir = "{}/out/".format(base_dir)
-    pass 
 
+def search_key(person, category):
+    label_dict = getattr(person, category + "_dict")
+    for key in label_dict.keys():
+        if label_dict[key] == getattr(person, category):
+            return key
+
+def calc_anno_distribution(args):
+    """count the number of each attribute
+
+    Args:
+        args ([type]): [description]
+    """
+    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
+    att_hierarchy = get_titan_att_types(args)
+
+    for split in ["all", "train", "val", "test"]:
+        dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True, split=split)
+        att_count = [dict.fromkeys(category.keys(), 0) for category in att_hierarchy]
+        communicative, complex_context, atomic, simple_context, transporting = att_count
+        for seq in dataset.seqs:
+            for frame in seq.frames:
+                for person in frame.persons:
+                    communicative[search_key(person, "communicative")] += 1
+                    complex_context[search_key(person, "complex_context")] += 1
+                    atomic[search_key(person, "atomic")] += 1
+                    simple_context[search_key(person, "simple_context")] += 1
+                    transporting[search_key(person, "transporting")] += 1
+                    
+                    
+        print("For the {} set:".format(split), sep="\n") 
+        print(communicative, complex_context, atomic, simple_context, transporting, sep="\n \n")
 
 def test_construct_dataset(args):
-    base_dir = args.base_dir
-    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/TITAN/".format(base_dir)
-    save_dir = "{}/out/".format(base_dir)
+    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
     
     dataset = TITANDataset(pifpaf_out, dataset_dir, split="train")
     construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=True)
@@ -358,10 +404,7 @@ def test_construct_dataset(args):
 def test_forward(args):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
-    base_dir = args.base_dir
-    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
-    dataset_dir = "{}/data/TITAN".format(base_dir)
-    save_dir = "{}/out/".format(base_dir)
+    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
 
     dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True)
     simple_dataset = TITANSimpleDataset(dataset)
@@ -380,11 +423,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser() 
     parser.add_argument("--base_dir", type=str, default="./", help="default root working directory")
     parser.add_argument("--function", type=str, default="None", help="which function to call")
-    args = parser.parse_args()
+    args = parser.parse_args(["--base_dir", "codes/", "--function", "annotation"])
 
     function_dict = {"annotation": get_titan_att_types, 
                      "pickle": pickle_all_sequences, 
-                     "dist":calc_anno_distribution}
+                     "dist":calc_anno_distribution,
+                     "label_stats": calc_anno_distribution}
 
     if args.function in function_dict.keys():
         function_dict.get(args.function)(args)
