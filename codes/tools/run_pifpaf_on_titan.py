@@ -3,13 +3,21 @@
 import os 
 import glob 
 import subprocess
+import argparse
 import multiprocessing as mp 
 from multiprocessing import Pool
 from openpifpaf import Predictor
 
-LOCAL_RUN = False
-base_dir = "codes" if LOCAL_RUN else "."
-output_dir = "{}/out/pifpaf_results/".format(base_dir)
+parser = argparse.ArgumentParser() 
+parser.add_argument("--base_dir", type=int, default="./")
+parser.add_argument("--long_edge", type=int, default=1920)
+args = parser.parse_args()
+
+base_dir = args.base_dir
+output_dir = "{}/out/pifpaf_results_{}/".format(base_dir)
+
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 all_clip_names = glob.glob("{}/data/TITAN/images_anonymized/*".format(base_dir), recursive=True)
 clips = [name.split(sep="/")[-1] for name in all_clip_names]
@@ -46,7 +54,7 @@ def process_one_seq(seq_idx):
                "{}/out/titan_clip/example.png".format(base_dir), 
                "--glob", "\"{}/data/TITAN/images_anonymized/{}/images/*.png\"".format(base_dir, clip), 
                "--checkpoint=shufflenetv2k30",  
-               "--long-edge",  "1920",
+               "--long-edge",  "{}".format(args.long_edge),
                "--force-complete-pose",
                "--json-output", clip_save_path]
     shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
