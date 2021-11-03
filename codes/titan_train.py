@@ -133,8 +133,8 @@ if __name__ == "__main__":
         aps = np.nan_to_num(ap[idx], 0)
         print("")
         print("For {} actions accuracy {:.4f} f1 score {:.4f} Jaccard score {:.4f} mAP {:.4f}".format(
-            layer, acc[idx], f1[idx], jac[idx], np.mean(aps)))
-        print("Average precision for each class is {}".format(np.round(aps, decimals=4).tolist()))
+            layer, acc[idx], f1[idx], jac[idx], np.mean(ap[idx])))
+        print("Average precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
         print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
         print("The corresponding classes are {}".format(getattr(Person, action_hierarchy[idx]+"_dict")))
         print(cfx[idx])

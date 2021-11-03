@@ -1,6 +1,7 @@
 import torch 
 import numpy as np 
 import torch.nn as nn 
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from sklearn.metrics import (
@@ -62,6 +63,9 @@ def to_one_hot(n_cls, label):
     one_hot_label = np.eye(n_cls)[label]
     return one_hot_label
 
+def softmax(score:np.ndarray):
+    return F.softmax(torch.tensor(score), dim=-1).detach().numpy() 
+
 def get_eval_metrics(result_list, label_list, score_list):
     """ 
     """
@@ -72,8 +76,10 @@ def get_eval_metrics(result_list, label_list, score_list):
         f1 = f1_score(y_true=label, y_pred=pred, average='macro')
         jac = jaccard_score(y_true=label, y_pred=pred, average='macro')
         cfx = confusion_matrix(y_true=label, y_pred=pred, labels=range(n_classes[idx]))
-        ap = average_precision_score(y_true=to_one_hot(n_classes[idx], label), y_score=score, average=None)
-        
+        # the network outputs logits, so use softmax to convert them to prediction scores 
+        ap = average_precision_score(y_true=to_one_hot(n_classes[idx], label), 
+                                     y_score=softmax(score), average=None) 
+        ap = np.nan_to_num(ap, nan=0)
         acc_list.append(acc)
         f1_list.append(f1)
         jac_list.append(jac)
