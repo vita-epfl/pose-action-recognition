@@ -76,6 +76,7 @@ if __name__ == "__main__":
     testset = TITANSimpleDataset(testset)
     
     if args.debug:
+        print("using a 2 epochs and 1000 samples for debugging")
         args.num_epoch = 2
         trainset = Subset(trainset, indices=range(1000))
         valset = Subset(trainset, indices=range(1000))
@@ -123,13 +124,17 @@ if __name__ == "__main__":
         train_loss_list.append(train_loss)
         test_acc_list.append(test_acc)
     
-    result_list, label_list = get_all_predictions(model, testloader)
-    acc, f1, jac, cfx = get_eval_metrics(result_list, label_list)
+    result_list, label_list, score_list = get_all_predictions(model, testloader)
+    acc, f1, jac, cfx, ap = get_eval_metrics(result_list, label_list, score_list)
     
     action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
     for idx, layer in enumerate(action_hierarchy):
+        # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
+        aps = np.nan_to_num(ap[idx], 0)
         print("")
-        print("For {} actions accuracy {:.4f} f1 score {:.4f} Jaccard score {:.4f}".format(layer, acc[idx], f1[idx], jac[idx]))
+        print("For {} actions accuracy {:.4f} f1 score {:.4f} Jaccard score {:.4f} mAP {:.4f}".format(
+            layer, acc[idx], f1[idx], jac[idx], np.mean(aps)))
+        print("Average precision for each class is {}".format(np.round(aps, decimals=4).tolist()))
         print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
         print("The corresponding classes are {}".format(getattr(Person, action_hierarchy[idx]+"_dict")))
         print(cfx[idx])
