@@ -136,7 +136,7 @@ if __name__ == "__main__":
         print("Accuracy for each class: {}".format(per_class_acc(cfx[idx])))
         print("Average Precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
         print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
-        print("The corresponding classes are {}".format(getattr(Person, action_hierarchy[idx]+"_dict")))
+        print("The corresponding classes are {}".format(Person.get_attr_dict(type=layer)))
         print(cfx[idx])
         print("")
         

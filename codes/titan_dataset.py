@@ -82,6 +82,17 @@ class Person(object):
         self.simple_context = self.simple_context_dict.get(gt_anno['attributes.Simple Context'], None)
         self.transporting = self.transporting_dict.get(gt_anno['attributes.Transporting'], None) 
     
+    @classmethod
+    def get_attr_dict(cls, type):
+        mapping = {"communicative":cls.communicative_dict, 
+                   "complex_context":cls.complex_context_dict,
+                   "atomic":cls.atomic_dict,
+                   "simple_context":cls.simple_context_dict,
+                   "transporting":cls.transporting_dict}
+        
+        original_dict = mapping[type]
+        simplified = {simplify_key(key) :value for key, value in original_dict.items()}
+        return simplified
         
 
 class Vehicle(object):
@@ -367,11 +378,28 @@ def search_key(person, category):
     for key in label_dict.keys():
         if label_dict[key] == getattr(person, category):
             return key
+
+def simplify_key(key:str):
+    simplify_dict = {'getting in 4 wheel vehicle': 'getting in 4 wv',
+                     'getting off 2 wheel vehicle': "getting off 2 wv",
+                     "getting on 2 wheel vehicle":'getting on 2 wv',
+                     'getting out of 4 wheel vehicle':'getting out of 4 wv',
+                     "crossing a street at pedestrian crossing":"crossing legally",
+                     "jaywalking (illegally crossing NOT at pedestrian crossing)":"crossing illegally",
+                     "waiting to cross street":"waiting to cross",
+                     "walking along the side of the road": 'walking on the side',
+                     'carrying with both hands':"carrying",
+                     }
+    if key in simplify_dict.keys():
+        return simplify_dict[key]
+    else:
+        return key
+
 def print_dict_in_percentage(dict_record:Dict[str, int]):
     total_count = sum(list(dict_record.values()))
     print()
     for key, value in dict_record.items():
-        print("\'{}\':{:.2f}%".format(key, value/total_count*100))
+        print("\'{}\':{:.2f}%".format(simplify_key(key), value/total_count*100))
     print()
     
 def calc_anno_distribution(args):
