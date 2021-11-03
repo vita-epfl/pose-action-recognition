@@ -11,6 +11,6 @@
 #SBATCH --output "out/slurm-%A_%a.log"
 #SBATCH --mem=0
 
-module load gcc/8.4.0-cuda
+module load gcc/8.4.0-cuda cuda/10.2.89
 echo "${@:1}"
 python -u "${@:1}"

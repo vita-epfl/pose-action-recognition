@@ -11,6 +11,7 @@ from openpifpaf import Predictor
 parser = argparse.ArgumentParser() 
 parser.add_argument("--base_dir", type=str, default="./")
 parser.add_argument("--long_edge", type=int, default=1920)
+parser.add_argument("--n_process", type=int, default=0)
 args = parser.parse_args() # ["--base_dir", "codes", "--long_edge", "3333"]
 
 base_dir = args.base_dir
@@ -66,9 +67,13 @@ def process_one_seq(seq_idx):
 
 
 if __name__ == "__main__":
-    mp.set_start_method('spawn')
-    with Pool(processes=4) as p:
-        p.map(process_one_seq, range(len(clips)))
+    if args.n_process > 2:
+        mp.set_start_method('spawn')
+        with Pool(processes=args.n_process) as p:
+            p.map(process_one_seq, range(len(clips)))
+    else:
+        for idx in range(len(clips)):
+            process_one_seq(idx)
     
     # delete the example file 
     for clip in clips:

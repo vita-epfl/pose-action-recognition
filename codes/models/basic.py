@@ -46,7 +46,8 @@ class MonolocoModel(nn.Module):
             y = self.linear_stages[i](y)
         y = self.w2(y)
         # need to verify this 
-        return F.softmax(y, dim=-1)
+        # return F.softmax(y, dim=-1)
+        return y
 
 
 class MyLinear(nn.Module):
@@ -137,7 +138,8 @@ class TempMonolocoModel(nn.Module):
         
         y = self.w2(y)
         # need to verify this 
-        return F.softmax(y, dim=-1)
+        # return F.softmax(y, dim=-1)
+        return y
     
     
 class MultiHeadMonoLoco(nn.Module):
@@ -181,5 +183,7 @@ class MultiHeadMonoLoco(nn.Module):
         for i in range(self.num_stage):
             y = self.linear_stages[i](y)
             
-        predictions = [F.softmax(head(y), dim=-1) for head in self.output_heads]
+        # predictions = [F.softmax(head(y), dim=-1) for head in self.output_heads]
+        predictions = [head(y) for head in self.output_heads]
+        
         return predictions
