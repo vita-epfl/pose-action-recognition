@@ -367,7 +367,13 @@ def search_key(person, category):
     for key in label_dict.keys():
         if label_dict[key] == getattr(person, category):
             return key
-
+def print_dict_in_percentage(dict_record:Dict[str, int]):
+    total_count = sum(list(dict_record.values()))
+    print()
+    for key, value in dict_record.items():
+        print("\'{}\':{:.2f}%".format(key, value/total_count*100))
+    print()
+    
 def calc_anno_distribution(args):
     """count the number of each attribute
 
@@ -391,8 +397,12 @@ def calc_anno_distribution(args):
                     transporting[search_key(person, "transporting")] += 1
                     
                     
-        print("For the {} set:".format(split), sep="\n") 
-        print(communicative, complex_context, atomic, simple_context, transporting, sep="\n \n")
+        print("For the {} set:".format(split), sep="\n")
+        all_records = [communicative, complex_context, atomic, simple_context, transporting]
+        all_names = ['communicative', 'complex_context', 'atomic', 'simple_context', 'transporting']
+        for record, name in zip(all_records, all_names):
+            print("for {} actions".format(name))
+            print_dict_in_percentage(record)
 
 def test_construct_dataset(args):
     pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
@@ -423,7 +433,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser() 
     parser.add_argument("--base_dir", type=str, default="./", help="default root working directory")
     parser.add_argument("--function", type=str, default="None", help="which function to call")
-    args = parser.parse_args(["--base_dir", "codes/", "--function", "annotation"])
+    args = parser.parse_args(["--base_dir", "codes/", "--function", "label_stats"])
 
     function_dict = {"annotation": get_titan_att_types, 
                      "pickle": pickle_all_sequences, 

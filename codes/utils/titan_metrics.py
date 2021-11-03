@@ -66,6 +66,11 @@ def to_one_hot(n_cls, label):
 def softmax(score:np.ndarray):
     return F.softmax(torch.tensor(score), dim=-1).detach().numpy() 
 
+def per_class_acc(cfx_mtx):
+    correct = np.diagonal(cfx_mtx)
+    total = np.sum(cfx_mtx, axis=1)
+    return np.nan_to_num(correct/total, nan=0)
+
 def get_eval_metrics(result_list, label_list, score_list):
     """ 
     """

@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Subset
 torch.autograd.set_detect_anomaly(True)
 
 from models import MultiHeadMonoLoco
-from utils.titan_metrics import compute_accuracy, get_all_predictions, get_eval_metrics
+from utils.titan_metrics import compute_accuracy, get_all_predictions, get_eval_metrics, per_class_acc
 from utils.losses import MultiHeadClfLoss
 from titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
 from sklearn.metrics import f1_score, jaccard_score, confusion_matrix, accuracy_score
@@ -130,11 +130,11 @@ if __name__ == "__main__":
     action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
     for idx, layer in enumerate(action_hierarchy):
         # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
-        aps = np.nan_to_num(ap[idx], 0)
         print("")
         print("For {} actions accuracy {:.4f} f1 score {:.4f} Jaccard score {:.4f} mAP {:.4f}".format(
             layer, acc[idx], f1[idx], jac[idx], np.mean(ap[idx])))
-        print("Average precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
+        print("Accuracy for each class: {}".format(per_class_acc(cfx[idx])))
+        print("Average Precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
         print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
         print("The corresponding classes are {}".format(getattr(Person, action_hierarchy[idx]+"_dict")))
         print(cfx[idx])
