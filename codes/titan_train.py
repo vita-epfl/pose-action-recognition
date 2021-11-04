@@ -138,6 +138,7 @@ if __name__ == "__main__":
         time_suffix = "{}".format(datetime.datetime.now()).replace(" ", "_").replace(":", ".")
         filename = "{}/TITAN_Baseline_{}.pth".format(args.weight_dir, time_suffix)
         torch.save(model.state_dict(), filename)
+        print("model saved to {}".format(filename))
     
     result_list, label_list, score_list = get_all_predictions(model, testloader)
     acc, f1, jac, cfx, ap = get_eval_metrics(result_list, label_list, score_list)
