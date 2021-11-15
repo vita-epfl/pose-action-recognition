@@ -448,7 +448,7 @@ def test_forward(args):
     simple_dataset = TITANSimpleDataset(dataset)
     dataloader = DataLoader(simple_dataset, batch_size=2, shuffle=True, collate_fn=TITANSimpleDataset.collate)
 
-    model = MultiHeadMonoLoco(input_size=17*3).to(device)
+    model = MultiHeadMonoLoco(input_size=17*2).to(device)
     criterion = MultiHeadClfLoss()
     for poses, labels in dataloader:
         poses, labels = poses.to(device), labels.to(device)
