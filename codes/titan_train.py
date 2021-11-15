@@ -42,7 +42,7 @@ parser.add_argument("--pifpaf_out", type=str, default="./out/pifpaf_results/", h
 parser.add_argument("--dataset_dir", type=str, default="./data/TITAN/", help="original TITAN dataset folder, should end with /")
 parser.add_argument("--save_dir", type=str, default="./out/", help="saved pickle file of the poses, should end with /")
 parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
-parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models, end with /")
+parser.add_argument("--weight_dir", type=str, default="./out/trained/", help="path to save trained models, end with /")
 parser.add_argument("--result_dir", type=str, default="./out/results/", help="training logs dir, end with /")
 
 parser.add_argument("--batch_size", type=int, default=512, help="batch size")
@@ -67,10 +67,6 @@ parser.add_argument("--ckpt", default=None, type=str, help="checkpoint file name
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
 parser.add_argument("--save_model", action="store_true", help="store trained network")
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
-
-if __name__ == "__main__":
-
-
 
 if __name__ == "__main__":
     
