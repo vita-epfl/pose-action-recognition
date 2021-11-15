@@ -54,12 +54,21 @@ parser.add_argument("--linear_size", type=int, default=256, help="size of hidden
 parser.add_argument("--dropout", type=float, default=0.2, help="dropout rate")
 parser.add_argument("--n_stage", type=int, default=3, help="number of stages in a monoloco model")
 
+# loss related arguments 
+parser.add_argument("--n_tasks", type=int, default=5, help="number of tasks for multi-task loss, 5 for TITAN")
+parser.add_argument("--imbalance", type=str, default="manual", choices=["manual", "focal", "both"], 
+                    help="method to tackle imbalanced data")
+parser.add_argument("--gamma", type=float, default=1.5, help="the gamma parameter for focal loss, should be a positive integer")
+parser.add_argument("--anneal_factor", type=float, default=0.0, help="annealing factor for alpha balanced cross entropy")
+parser.add_argument("--uncertainty", action="store_true", help="use task uncertainty")
+
 parser.add_argument("--test_only", action="store_true", help="run a test on a pretrained model")
 parser.add_argument("--ckpt", default=None, type=str, help="checkpoint file name usually a xxxx.pth file in args.weight_dir")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
 parser.add_argument("--save_model", action="store_true", help="store trained network")
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
 
+if __name__ == "__main__":
 
 
 
@@ -101,8 +110,11 @@ if __name__ == "__main__":
         except:
             print("failed to load pretrained, train from scratch instead")
         
-    criterion = MultiHeadClfLoss()
-    optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
+    criterion = MultiHeadClfLoss(n_tasks=args.n_tasks, imbalance=args.imbalance, gamma=args.gamma, 
+                                 anneal_factor=args.anneal_factor, uncertainty=args.uncertainty, device=device)
+    # criterion.parameters will be an empty list if uncertainty is false 
+    params = list(model.parameters()) + list(criterion.parameters()) 
+    optimizer = optim.Adam(params=params, lr=args.lr)
     
     # training loop 
     best_test_acc = -1
