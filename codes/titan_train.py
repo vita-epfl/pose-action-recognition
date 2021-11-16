@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser()
 
 # # local paths
 # parser.add_argument("--pifpaf_out", type=str, default="codes/out/pifpaf_results/", help="pifpaf output folder, end with /")
-# parser.add_argument("--dataset_dir", type=str, default="codes/data/", help="original TITAN dataset folder, should end with /")
+# parser.add_argument("--dataset_dir", type=str, default="codes/data/TITAN/", help="original TITAN dataset folder, should end with /")
 # parser.add_argument("--save_dir", type=str, default="codes/out/", help="saved pickle file of the poses, should end with /")
 # parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures, should end with /")
 # parser.add_argument("--weight_dir", type=str, default="codes/out/trained/", help="path to save trained models, end with /")
