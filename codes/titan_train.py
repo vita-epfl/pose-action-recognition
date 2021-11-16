@@ -43,7 +43,7 @@ def manual_add_arguments(args):
 parser = argparse.ArgumentParser() 
 
 # base path
-parser.add_argument("--base_dir", type=str, default="codes", help="root directory of the codes")
+parser.add_argument("--base_dir", type=str, default=".", help="root directory of the codes")
 
 parser.add_argument("--batch_size", type=int, default=512, help="batch size")
 parser.add_argument("--num_epoch", type=int, default=50, help="number of training epochs")
