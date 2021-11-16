@@ -63,6 +63,7 @@ parser.add_argument("--anneal_factor", type=float, default=0.0, help="annealing 
 parser.add_argument("--uncertainty", action="store_true", help="use task uncertainty")
 
 parser.add_argument("--task_name", type=str, default="Baseline", help="a name for this training task, used in save name")
+parser.add_argument("--select_best", action="store_true", help="select the checkpoint with best validation accuracy")
 parser.add_argument("--test_only", action="store_true", help="run a test on a pretrained model")
 parser.add_argument("--ckpt", default=None, type=str, help="checkpoint file name usually a xxxx.pth file in args.weight_dir")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
@@ -70,8 +71,8 @@ parser.add_argument("--save_model", action="store_true", help="store trained net
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
 
 if __name__ == "__main__":
-    
-    args = parser.parse_args()
+    # "--debug", "--test_only", "--ckpt", "TITAN_Baseline_2021-11-04_00.42.06.241724.pth"
+    args = parser.parse_args(["--base_dir", "codes","--debug", "--imbalance", "both", "--uncertainty", "--save_model", "--anneal_factor", "-0.75"])
     args = manual_add_arguments(args)
     
     # prepare train, validation and test splits, as well as the dataloaders 
@@ -135,7 +136,7 @@ if __name__ == "__main__":
         train_loss = sum(batch_loss)/len(batch_loss)
         
         test_acc = compute_accuracy(model, valloader)
-        if test_acc > best_test_acc:
+        if test_acc > best_test_acc and args.select_best:
             best_test_acc = test_acc
             best_weights = copy.deepcopy(model.state_dict())
         # scheduler.step(train_loss)
