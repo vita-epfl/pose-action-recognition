@@ -26,24 +26,24 @@ torch.backends.cudnn.enabled=True
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.deterministic = True
 
+def manual_add_arguments(args):
+    """
+        manually specify the folder directory
+    """
+    args.output_size = [4, 7, 9, 13, 4]
+    args.pifpaf_out = "{}/out/pifpaf_results/".format(args.base_dir) # pifpaf output folder, end with /
+    args.dataset_dir = "{}/data/TITAN/".format(args.base_dir) # original TITAN dataset folder, should end with / 
+    args.save_dir = "{}/out/".format(args.base_dir) # saved pickle file of the poses, should end with /
+    args.fig_dir = "{}/figs/".format(args.base_dir) # path to save figures, should end with /
+    args.weight_dir = "{}/out/trained/".format(args.base_dir) # path to save trained models, end with /
+    args.result_dir = "{}/out/results/".format(args.base_dir) # training logs dir, end with /
+    return args
+
 # set value for some arguments 
 parser = argparse.ArgumentParser() 
 
-# # local paths
-# parser.add_argument("--pifpaf_out", type=str, default="codes/out/pifpaf_results/", help="pifpaf output folder, end with /")
-# parser.add_argument("--dataset_dir", type=str, default="codes/data/TITAN/", help="original TITAN dataset folder, should end with /")
-# parser.add_argument("--save_dir", type=str, default="codes/out/", help="saved pickle file of the poses, should end with /")
-# parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures, should end with /")
-# parser.add_argument("--weight_dir", type=str, default="codes/out/trained/", help="path to save trained models, end with /")
-# parser.add_argument("--result_dir", type=str, default="codes/out/results/", help="training logs dir, end with /")
-
-# # remote paths 
-parser.add_argument("--pifpaf_out", type=str, default="./out/pifpaf_results/", help="pifpaf output folder, end with /")
-parser.add_argument("--dataset_dir", type=str, default="./data/TITAN/", help="original TITAN dataset folder, should end with /")
-parser.add_argument("--save_dir", type=str, default="./out/", help="saved pickle file of the poses, should end with /")
-parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
-parser.add_argument("--weight_dir", type=str, default="./out/trained/", help="path to save trained models, end with /")
-parser.add_argument("--result_dir", type=str, default="./out/results/", help="training logs dir, end with /")
+# base path
+parser.add_argument("--base_dir", type=str, default="codes", help="root directory of the codes")
 
 parser.add_argument("--batch_size", type=int, default=512, help="batch size")
 parser.add_argument("--num_epoch", type=int, default=50, help="number of training epochs")
@@ -62,6 +62,7 @@ parser.add_argument("--gamma", type=float, default=1.5, help="the gamma paramete
 parser.add_argument("--anneal_factor", type=float, default=0.0, help="annealing factor for alpha balanced cross entropy")
 parser.add_argument("--uncertainty", action="store_true", help="use task uncertainty")
 
+parser.add_argument("--task_name", type=str, default="Baseline", help="a name for this training task, used in save name")
 parser.add_argument("--test_only", action="store_true", help="run a test on a pretrained model")
 parser.add_argument("--ckpt", default=None, type=str, help="checkpoint file name usually a xxxx.pth file in args.weight_dir")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
@@ -71,7 +72,8 @@ parser.add_argument("--verbose", action="store_true", help="being more verbose, 
 if __name__ == "__main__":
     
     args = parser.parse_args()
-    args.output_size = [4, 7, 9, 13, 4]
+    args = manual_add_arguments(args)
+    
     # prepare train, validation and test splits, as well as the dataloaders 
     trainset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "train")
     valset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "val")
@@ -144,7 +146,7 @@ if __name__ == "__main__":
     
     if args.save_model:
         time_suffix = "{}".format(datetime.datetime.now()).replace(" ", "_").replace(":", ".")
-        filename = "{}/TITAN_Baseline_{}.pth".format(args.weight_dir, time_suffix)
+        filename = "{}/TITAN_{}_{}.pth".format(args.weight_dir, args.task_name, time_suffix)
         torch.save(model.state_dict(), filename)
         print("model saved to {}".format(filename))
     
