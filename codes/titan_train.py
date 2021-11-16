@@ -153,6 +153,8 @@ if __name__ == "__main__":
     result_list, label_list, score_list = get_all_predictions(model, testloader)
     acc, f1, jac, cfx, ap = get_eval_metrics(result_list, label_list, score_list)
     
+    print("In general, overall accuracy {} avg Jaccard {} avg F1 {}".format(np.mean(acc), np.mean(jac), np.mean(f1)))
+    
     action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
     for idx, layer in enumerate(action_hierarchy):
         # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
