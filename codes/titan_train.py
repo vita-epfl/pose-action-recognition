@@ -71,8 +71,8 @@ parser.add_argument("--save_model", action="store_true", help="store trained net
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
 
 if __name__ == "__main__":
-    # "--debug", "--test_only", "--ckpt", "TITAN_Baseline_2021-11-04_00.42.06.241724.pth"
-    args = parser.parse_args(["--base_dir", "codes","--debug", "--imbalance", "both", "--uncertainty", "--save_model", "--anneal_factor", "-0.75"])
+
+    args = parser.parse_args()
     args = manual_add_arguments(args)
     
     # prepare train, validation and test splits, as well as the dataloaders 
