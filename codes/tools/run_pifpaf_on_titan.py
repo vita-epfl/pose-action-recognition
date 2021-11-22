@@ -50,7 +50,9 @@ def process_one_seq(seq_idx):
     
     clip_save_path = output_dir + clip + "/"
     if not os.path.exists(clip_save_path):
-        os.mkdir(clip_save_path)
+        os.mkdir(clip_save_path)    
+    # the --glob command should be quoted with "", 
+    # otherwise the shell will convert the wildcard to all matching files
     command = ["python", "-m", "openpifpaf.predict", 
                "{}/out/titan_clip/example.png".format(base_dir), 
                "--glob", "\"{}/data/TITAN/images_anonymized/{}/images/*.png\"".format(base_dir, clip), 

@@ -12,11 +12,12 @@ class FocalLoss(nn.Module):
         original code runs on python2 and cpu, modified to run on python3 and GPU
     """
 
-    def __init__(self, gamma=0, alpha=None, device="cpu"):
+    def __init__(self, gamma=0, alpha=None, device="cpu", ignore_index:int=None):
         super(FocalLoss, self).__init__()
         # registered gamma and alpha as nn.Parameters, so we can use self.to(device) to move them easily
         self.gamma = nn.Parameter(torch.tensor(gamma), requires_grad=False)
         self.alpha = alpha
+        self.ignore_index = ignore_index
         if isinstance(alpha, (float, int)):  # binary classification
             self.alpha = nn.Parameter(torch.tensor([alpha, 1-alpha]), requires_grad=False)
         if isinstance(alpha, list):  # multi-class classification
@@ -29,7 +30,13 @@ class FocalLoss(nn.Module):
             pred = pred.transpose(1, 2)    # N,C,H*W => N,H*W,C
             pred = pred.contiguous().view(-1, pred.size(2))   # N,H*W,C => N*H*W,C
         target = target.view(-1, 1)
+        if self.ignore_index is not None:
+            keep_flag = torch.logical_not(torch.eq(target, self.ignore_index))# keep those not equal to ignore index
+            target = target[keep_flag.flatten()]
+            pred = pred[keep_flag.flatten()]
 
+
+            
         logpt = F.log_softmax(pred, dim=-1)
         logpt = logpt.gather(1, target)
         logpt = logpt.view(-1)
@@ -62,8 +69,14 @@ class MultiHeadClfLoss(nn.Module):
         [3.24, 0.24, 0.15, 4.79, 0.70, 0.71, 7.11, 0.23, 0.24, 0.92, 37.70, 29.32, 14.67],  # 13 simple context
         [8.01, 0.81, 2.28, 88.90],  # 4 transporting
     ]
-
-    def __init__(self, n_tasks=5, imbalance="manual", gamma=0, anneal_factor=0, uncertainty=False, device="cpu"):
+    ignored_classes = [
+        None, 
+        [0, 1, 2, 3],
+        None,
+        [3, 4, 5, 6],
+        None
+    ]
+    def __init__(self, n_tasks=5, imbalance="manual", gamma=0, anneal_factor=0, uncertainty=False, device="cpu", mask_cls=False):
         """ 
             a multitask loss for action recognition task on TITAN dataset https://usa.honda-ri.com/titan
 
@@ -82,14 +95,18 @@ class MultiHeadClfLoss(nn.Module):
         self.device = device
         self.anneal_factor = anneal_factor
         self.use_uncertainty = uncertainty
-
+        self.mask_cls = mask_cls # whether to mask out unlearnable classes 
+        self.ignore_index = -100 # replace some class labels with this, to ignore them during training
         self.cls_weights = self.compute_class_weights()
         if imbalance == "manual":
-            self.base_loss = [nn.CrossEntropyLoss(weight=weight) for weight in self.cls_weights]
+            self.base_loss = [nn.CrossEntropyLoss(weight=weight, ignore_index=self.ignore_index) 
+                                        for weight in self.cls_weights]
         elif imbalance == "focal":
-            self.base_loss = [FocalLoss(gamma=gamma, device=self.device) for _ in range(n_tasks)]
+            self.base_loss = [FocalLoss(gamma=gamma, device=self.device, ignore_index=self.ignore_index) 
+                                        for _ in range(n_tasks)]
         elif imbalance == "both":
-            self.base_loss = [FocalLoss(gamma=gamma, alpha=weight, device=self.device) for weight in self.cls_weights]
+            self.base_loss = [FocalLoss(gamma=gamma, alpha=weight, device=self.device, ignore_index=self.ignore_index) 
+                                        for weight in self.cls_weights]
         # basically, in multitask loss, total_loss = sum(one_loss/var + log_var)
         # for numerical stability 1/var = exp(-log_var)
         self.log_vars = nn.Parameter(torch.zeros(n_tasks)) if self.use_uncertainty else None
@@ -104,11 +121,28 @@ class MultiHeadClfLoss(nn.Module):
         # registered as nn.Parameters, so we can use to(device) to move them easily
         return nn.ParameterList(cls_weights)
 
+    def mask_out_classes(self, target:torch.Tensor):
+        """ 
+            replace the classes in cls.ignored_class with -100 (same as nn.CrossEntropyLoss)
+            so they will be ignored during training 
+            
+            target: label tensor of size (N, M), where M is the number of heads in that network 
+            
+            pytorch will modify `target` in-place, so no need to return some new tensor 
+        """
+        for ignored_i, target_i in zip(self.ignored_classes, target.permute(1, 0)):
+            if ignored_i is None:
+                continue
+            kept_flag = torch.isin(target_i, torch.tensor(ignored_i, device=self.device))
+            target_i[kept_flag] = self.ignore_index
+            
     def forward(self, pred, target):
         """ pred: a list of prediction results from multiple prediction heads of a network
                   the ith element has size (N, C_i)
             target: label tensor of size (N, M), where M is the number of heads in that network 
         """
+        if self.mask_cls:
+            self.mask_out_classes(target)
         loss_list = []
         for idx, (pred_i, target_i) in enumerate(zip(pred, target.permute(1, 0))):
             if self.use_uncertainty:
@@ -145,7 +179,36 @@ def test_gpu_forward():
             optimizer.step()
             # print("updated parameters: ", list(criterion.parameters()))
 
+def test_mask_out_label():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    pred = [torch.randn(100, n_cls).to(device) for n_cls in [4, 7, 9, 13, 4]]
+    label = torch.cat([torch.randint(0, n_cls, (100,)).reshape(-1, 1).to(device)
+                       for n_cls in [4, 7, 9, 13, 4]], dim=1)
+    criterion = MultiHeadClfLoss(n_tasks=5, imbalance="both", gamma=2, anneal_factor=-0.75,
+                                     uncertainty=True, device=device, mask_cls=True)
+    loss = criterion(pred, label)
 
+def test_ignore_index():
+    
+    criterion = nn.CrossEntropyLoss(ignore_index=-100)
+    data  = torch.randn((12, 10))
+    model = nn.Linear(10, 3)
+    pred = model(data)
+    label = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2])  
+    
+    ignore_flag = torch.isin(label, torch.tensor([0, 1]))
+    label[ignore_flag] = -100
+    
+    loss1 = criterion(pred, label)
+    loss2 = criterion(pred[8:], label[8:])
+    assert torch.allclose(loss1, loss2)
+    
+    fl = FocalLoss(gamma=2, alpha=None, ignore_index=-100)
+    loss3 = fl.forward(pred, label)
+    loss4 = fl.forward(pred[8:], label[8:])
+    assert torch.allclose(loss3, loss4)
+    
 if __name__ == "__main__":
-
+    test_mask_out_label()
+    test_ignore_index()
     test_gpu_forward()
