@@ -111,7 +111,8 @@ if __name__ == "__main__":
             print("failed to load pretrained, train from scratch instead")
         
     criterion = MultiHeadClfLoss(n_tasks=args.n_tasks, imbalance=args.imbalance, gamma=args.gamma, 
-                                 anneal_factor=args.anneal_factor, uncertainty=args.uncertainty, device=device)
+                                 anneal_factor=args.anneal_factor, uncertainty=args.uncertainty, 
+                                 device=device, mask_cls=args.mask_cls)
     # criterion.parameters will be an empty list if uncertainty is false 
     params = list(model.parameters()) + list(criterion.parameters()) 
     optimizer = optim.Adam(params=params, lr=args.lr)
