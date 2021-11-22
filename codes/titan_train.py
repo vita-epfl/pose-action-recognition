@@ -61,6 +61,7 @@ parser.add_argument("--imbalance", type=str, default="manual", choices=["manual"
 parser.add_argument("--gamma", type=float, default=1.5, help="the gamma parameter for focal loss, should be a positive integer")
 parser.add_argument("--anneal_factor", type=float, default=0.0, help="annealing factor for alpha balanced cross entropy")
 parser.add_argument("--uncertainty", action="store_true", help="use task uncertainty")
+parser.add_argument("--mask_cls", action="store_true", help="maskout some unlearnable classes")
 
 parser.add_argument("--task_name", type=str, default="Baseline", help="a name for this training task, used in save name")
 parser.add_argument("--select_best", action="store_true", help="select the checkpoint with best validation accuracy")
