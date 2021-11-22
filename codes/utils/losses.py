@@ -133,7 +133,8 @@ class MultiHeadClfLoss(nn.Module):
         for ignored_i, target_i in zip(self.ignored_classes, target.permute(1, 0)):
             if ignored_i is None:
                 continue
-            kept_flag = torch.isin(target_i, torch.tensor(ignored_i, device=self.device))
+            target_copy = target_i.clone().detach().cpu().numpy()
+            kept_flag = np.isin(target_copy, ignored_i)
             target_i[kept_flag] = self.ignore_index
             
     def forward(self, pred, target):
