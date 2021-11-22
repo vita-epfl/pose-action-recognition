@@ -154,14 +154,15 @@ if __name__ == "__main__":
     result_list, label_list, score_list = get_all_predictions(model, testloader)
     acc, f1, jac, cfx, ap = get_eval_metrics(result_list, label_list, score_list)
     
-    print("In general, overall accuracy {} avg Jaccard {} avg F1 {}".format(np.mean(acc), np.mean(jac), np.mean(f1)))
+    print("In general, overall accuracy {:.4f} avg Jaccard {:.4f} avg F1 {:.4f}".format(
+                                np.mean(acc), np.mean(jac), np.mean(f1)))
     
     action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
     for idx, layer in enumerate(action_hierarchy):
         # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
         print("")
-        print("For {} actions accuracy {:.4f} f1 score {:.4f} Jaccard score {:.4f} mAP {:.4f}".format(
-            layer, acc[idx], f1[idx], jac[idx], np.mean(ap[idx])))
+        print("For {} actions accuracy {:.4f} Jaccard score {:.4f} f1 score {:.4f} mAP {:.4f}".format(
+            layer, acc[idx], jac[idx], f1[idx], np.mean(ap[idx])))
         print("Accuracy for each class: {}".format(per_class_acc(cfx[idx])))
         print("Average Precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
         print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
