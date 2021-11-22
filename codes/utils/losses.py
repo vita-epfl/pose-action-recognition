@@ -167,7 +167,7 @@ def test_gpu_forward():
         print("Testing {} mode with anneal factor {} Uncertainty {}".format(
             imbalance, anneal_factor, uncertainty))
         criterion = MultiHeadClfLoss(n_tasks=5, imbalance=imbalance, gamma=2, anneal_factor=anneal_factor,
-                                     uncertainty=uncertainty, device=device)
+                                     uncertainty=uncertainty, device=device, mask_cls=True)
         # it looks like the parameters will change by at most lr in one step
         optimizer = optim.Adam(criterion.parameters(), lr=0.5)
 
