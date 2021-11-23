@@ -132,7 +132,7 @@ def run_all_titan_seqs(args):
     
     all_clips = get_all_clip_names(pifpaf_out)
     clip_nums = [int(clip.split("_")[-1]) for clip in all_clips]
-    clip_nums = [16, 26, 319, 731]
+    # clip_nums = [16, 26, 319, 731]
     
     model, predictor = get_models(ckpt_path)
     run_multiple_seq(model, predictor, base_dir, save_dir, clip_nums, alpha=args.alpha, dpi=args.dpi)
