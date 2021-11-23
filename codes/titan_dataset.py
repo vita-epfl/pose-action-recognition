@@ -93,6 +93,19 @@ class Person(object):
         original_dict = mapping[type]
         simplified = {simplify_key(key) :value for key, value in original_dict.items()}
         return simplified
+
+    @classmethod
+    def pred_list_to_str(cls, list_of_action):
+        """ convert a list of actions like [0, 0, ...] into list of strings ["action1", "action2", ...]
+        """
+        action_str = [] 
+        mappings = [cls.communicative_dict, cls.complex_context_dict, cls.atomic_dict, 
+                    cls.simple_context_dict, cls.transporting_dict]
+        for action, mapping in zip(list_of_action, mappings):
+            for key, value in mapping.items():
+                if action == value:
+                    action_str.append(simplify_key(key))
+        return action_str
         
 
 class Vehicle(object):
@@ -155,6 +168,7 @@ class TITANDataset(Dataset):
             print("loading preprocessed titan dataset from pickle file")
             self.seqs = self.load_from_pickle(pickle_dir=pickle_dir)
         elif os.path.exists(pifpaf_out) and os.path.exists(dataset_dir):
+            print("constructing dataset from pifpaf detection results and original annotation")
             processed_seqs = construct_from_pifpaf_results(pifpaf_out, dataset_dir)
             self.seqs = processed_seqs
         else:
@@ -389,6 +403,7 @@ def simplify_key(key:str):
                      "waiting to cross street":"waiting to cross",
                      "walking along the side of the road": 'walking on the side',
                      'carrying with both hands':"carrying",
+                     "none of the above":"none"
                      }
     if key in simplify_dict.keys():
         return simplify_dict[key]

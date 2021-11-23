@@ -67,12 +67,14 @@ class MyLinear(nn.Module):
     def forward(self, x):
 
         y = self.w1(x)
-        y = self.batch_norm1(y)
+        if x.shape[0]>1:
+            y = self.batch_norm1(y)
         y = self.relu(y)
         y = self.dropout(y)
 
         y = self.w2(y)
-        y = self.batch_norm2(y)
+        if x.shape[0]>1:
+            y = self.batch_norm2(y)
         y = self.relu(y)
         y = self.dropout(y)
 
@@ -176,7 +178,8 @@ class MultiHeadMonoLoco(nn.Module):
         x = x.view(N, V*C)
         # pre-processing
         y = self.w1(x)
-        y = self.batch_norm1(y)
+        if x.shape[0]>1:
+            y = self.batch_norm1(y)
         y = self.relu(y)
         y = self.dropout(y)
         # linear layers

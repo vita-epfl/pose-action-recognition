@@ -25,18 +25,23 @@ class FocalLoss(nn.Module):
         self.to(device)
 
     def forward(self, pred, target):
-        if pred.dim() > 2:
-            pred = pred.view(pred.size(0), pred.size(1), -1)  # N,C,H,W => N,C,H*W
-            pred = pred.transpose(1, 2)    # N,C,H*W => N,H*W,C
-            pred = pred.contiguous().view(-1, pred.size(2))   # N,H*W,C => N*H*W,C
+        
+        if pred.dim() == 3: # N, T, C 
+            N, T, C = pred.shape
+            pred = pred.contiguous().view(N*T, C)
+            
+        if pred.dim() == 4:
+            N, C, H, W = pred.shape
+            pred = pred.view(N, C, H*W)  # N,C,H,W => N,C,H*W
+            pred = pred.permute(0, 2, 1)    # N,C,H*W => N,H*W,C
+            pred = pred.contiguous().view(N*H*W, C)   # N,H*W,C => N*H*W,C
+            
         target = target.view(-1, 1)
         if self.ignore_index is not None:
             keep_flag = torch.logical_not(torch.eq(target, self.ignore_index))# keep those not equal to ignore index
             target = target[keep_flag.flatten()]
             pred = pred[keep_flag.flatten()]
 
-
-            
         logpt = F.log_softmax(pred, dim=-1)
         logpt = logpt.gather(1, target)
         logpt = logpt.view(-1)
