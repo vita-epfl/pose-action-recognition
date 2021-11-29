@@ -594,7 +594,7 @@ if __name__ == "__main__":
     parser.add_argument("--base_dir", type=str, default="./", help="default root working directory")
     parser.add_argument("--function", type=str, default="None", help="which function to call")
     parser.add_argument("--merge-cls", action="store_true", help="remove unlearnable, merge 5 labels into one")
-    args = parser.parse_args()
+    args = parser.parse_args(["--base_dir", "codes/", "--function", "forward", "--merge-cls"])
 
     function_dict = {"annotation": get_titan_att_types, 
                      "pickle": pickle_all_sequences, 
