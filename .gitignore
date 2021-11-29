@@ -1,6 +1,5 @@
 codes/data
 codes/models/trained/*
-codes/datasets
 out/
 open_repos/
 downloads/
