@@ -29,16 +29,19 @@ def compute_accuracy(model:nn.Module, testloader:DataLoader):
     return correct / total
 
 def get_all_predictions(model:nn.Module, testloader:DataLoader):
-    """ all prediction results of a model on a test set as well as the true label 
-        return two lists of numpy array, will be good for sklearn metrics, like sklearn.metrics.f1_score
+    """ all prediction results, true label of a model on a test set as well as prediction score
+        return three lists of numpy array, will be good for sklearn metrics, like sklearn.metrics.f1_score
+        the length of each list is the number of action sets, in titan it would be 5
+        
+        shape each element in the lists:
+            result_list: (n_samples, 1), predicted class for an action set for each sample in the test loader
+            label_list: (n_samples, 1) true label
+            score_list: (n_samples, n_classes) n_classses is the number of classes in this action set 
     """
     
     device = next(model.parameters()).device
     model.eval()
-    if isinstance(testloader.dataset, Subset):
-        n_tasks = len(testloader.dataset.dataset.n_cls)
-    else:
-        n_tasks = len(testloader.dataset.n_cls)
+    n_tasks = len(model.output_size)
         
     label_list, result_list, score_list = [[[] for _ in range(n_tasks)] for _ in range(3)]
     with torch.no_grad():
@@ -71,13 +74,23 @@ def to_one_hot(n_cls, label):
 def softmax(score:np.ndarray):
     return F.softmax(torch.tensor(score), dim=-1).detach().numpy() 
 
-def per_class_acc(cfx_mtx):
+def per_class_recall(cfx_mtx):
     correct = np.diagonal(cfx_mtx)
     total = np.sum(cfx_mtx, axis=1)
     return np.nan_to_num(correct/total, nan=0)
 
+def per_class_precision(cfx_mtx):
+    correct = np.diagonal(cfx_mtx)
+    total = np.sum(cfx_mtx, axis=0)
+    return np.nan_to_num(correct/total, nan=0)
+
+def per_class_f1(cfx_mtx):
+    precision = per_class_precision(cfx_mtx)
+    recall = per_class_recall(cfx_mtx)
+    return np.nan_to_num(2*precision*recall/(precision+recall), nan=0)
+
 def get_eval_metrics(result_list, label_list, score_list):
-    """ 
+    """ see `get_all_predictions` for input shape 
     """
     n_classes = [int(score.shape[1]) for score in score_list]
     acc_list, f1_list, jac_list, cfx_list, ap_list = [[] for _ in range(5)]
