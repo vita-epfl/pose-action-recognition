@@ -102,16 +102,22 @@ class MultiHeadClfLoss(nn.Module):
         self.use_uncertainty = uncertainty
         self.mask_cls = mask_cls # whether to mask out unlearnable classes 
         self.ignore_index = -100 # replace some class labels with this, to ignore them during training
-        self.cls_weights = self.compute_class_weights()
+        
+        if n_tasks == 5:
+            self.cls_weights = self.compute_class_weights()
+        else:
+            self.cls_weights = [None for _ in range(n_tasks)]
+            
         if imbalance == "manual":
-            self.base_loss = [nn.CrossEntropyLoss(weight=weight, ignore_index=self.ignore_index) 
-                                        for weight in self.cls_weights]
+            self.base_loss = [nn.CrossEntropyLoss(weight=self.cls_weights[idx], ignore_index=self.ignore_index) 
+                                        for idx in range(n_tasks)]
         elif imbalance == "focal":
             self.base_loss = [FocalLoss(gamma=gamma, device=self.device, ignore_index=self.ignore_index) 
-                                        for _ in range(n_tasks)]
+                                        for idx in range(n_tasks)]
         elif imbalance == "both":
-            self.base_loss = [FocalLoss(gamma=gamma, alpha=weight, device=self.device, ignore_index=self.ignore_index) 
-                                        for weight in self.cls_weights]
+            self.base_loss = [FocalLoss(gamma=gamma, alpha=self.cls_weights[idx], 
+                                        device=self.device, ignore_index=self.ignore_index) 
+                                        for idx in range(n_tasks)]
         # basically, in multitask loss, total_loss = sum(one_loss/var + log_var)
         # for numerical stability 1/var = exp(-log_var)
         self.log_vars = nn.Parameter(torch.zeros(n_tasks)) if self.use_uncertainty else None
@@ -202,7 +208,7 @@ def test_ignore_index():
     pred = model(data)
     label = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2])  
     
-    ignore_flag = torch.isin(label, torch.tensor([0, 1]))
+    ignore_flag = np.isin(label, torch.tensor([0, 1]))
     label[ignore_flag] = -100
     
     loss1 = criterion(pred, label)

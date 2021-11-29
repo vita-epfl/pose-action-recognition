@@ -146,7 +146,7 @@ if __name__ == "__main__":
     parser.add_argument("--function", type=str, default="None", help="which function to call")
     parser.add_argument("--alpha", type=float, default=0)
     parser.add_argument("--dpi", type=int, default=350)
-    args = parser.parse_args()
+    args = parser.parse_args(["--base_dir", "codes/", "--save_dir", "codes/out/recognition/" ,"--function", "all"])
 
     function_dict = {"image": test_run_image, 
                      "all": run_all_titan_seqs}

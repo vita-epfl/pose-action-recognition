@@ -13,12 +13,14 @@ import torch.nn.functional as F
 from typing import List, Set, Dict, Tuple, Optional
 from torch.utils.data import Dataset, DataLoader, Subset
 from utils.iou import get_iou_matches
-from models import MultiHeadMonoLoco
+from models import MultiHeadMonoLoco, MonolocoModel
 from utils.losses import MultiHeadClfLoss
 
 np.set_printoptions(precision=3, suppress=True)
 
 class Person(object):
+    
+    action_category = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
     # 4, 7, 9, 13, 4
     # obtained with get_titan_att_types
     communicative_dict = {'looking into phone': 0,
@@ -59,6 +61,7 @@ class Person(object):
                          'pushing': 2,
                          'none of the above': 3}
         
+    valid_action_dict = {"walking":0, "standing":1, "sitting":2, "bending":3, "biking":4, "motorcycling":4}
     
     def __init__(self, pred, gt_anno) -> None:
         """ pred: pifpaf prediction for this person 
@@ -83,15 +86,16 @@ class Person(object):
         self.transporting = self.transporting_dict.get(gt_anno['attributes.Transporting'], None) 
     
     @classmethod
-    def get_attr_dict(cls, type):
-        mapping = {"communicative":cls.communicative_dict, 
-                   "complex_context":cls.complex_context_dict,
-                   "atomic":cls.atomic_dict,
-                   "simple_context":cls.simple_context_dict,
-                   "transporting":cls.transporting_dict}
-        
-        original_dict = mapping[type]
-        simplified = {simplify_key(key) :value for key, value in original_dict.items()}
+    def get_attr_dict(cls, query_type):
+        # mapping = {"communicative":cls.communicative_dict, 
+        #            "complex_context":cls.complex_context_dict,
+        #            "atomic":cls.atomic_dict,
+        #            "simple_context":cls.simple_context_dict,
+        #            "transporting":cls.transporting_dict}
+        mapping = {category: getattr(cls, category + "_dict") for category in cls.action_category}
+        mapping.update({"valid_action":getattr(cls, "valid_action_dict")})
+        original_dict = mapping[query_type]
+        simplified = {cls.simplify_key(key) :value for key, value in original_dict.items()}
         return simplified
 
     @classmethod
@@ -104,9 +108,51 @@ class Person(object):
         for action, mapping in zip(list_of_action, mappings):
             for key, value in mapping.items():
                 if action == value:
-                    action_str.append(simplify_key(key))
+                    action_str.append(cls.simplify_key(key))
         return action_str
+    
+    def search_key(self, category):
+        """ search the name of action
+        """
+        obj_dict = getattr(self, category + "_dict")
+        value = getattr(self, category)
+        return search_key(obj_dict, value)
+    
+        # label_dict = getattr(self, category + "_dict")
+        # for key in label_dict.keys():
+        #     if label_dict[key] == getattr(self, category):
+        #         return key
+        # raise ValueError("Unrecognized action")
+            
+    @classmethod
+    def simplify_key(cls, key:str):
+        """ convert the original long label into a shorter one, 
+            better for printing 
+        """
+        simplify_dict = {'getting in 4 wheel vehicle': 'getting in 4 wv',
+                        'getting off 2 wheel vehicle': "getting off 2 wv",
+                        "getting on 2 wheel vehicle":'getting on 2 wv',
+                        'getting out of 4 wheel vehicle':'getting out of 4 wv',
+                        "crossing a street at pedestrian crossing":"crossing legally",
+                        "jaywalking (illegally crossing NOT at pedestrian crossing)":"crossing illegally",
+                        "waiting to cross street":"waiting to cross",
+                        "walking along the side of the road": 'walking on the side',
+                        'carrying with both hands':"carrying",
+                        "none of the above":"none"
+                        }
+        if key in simplify_dict.keys():
+            return simplify_dict[key]
+        else:
+            return key
         
+
+def search_key(obj_dict:dict, value):
+    """ search the name of action
+    """
+    for key in obj_dict.keys():
+        if obj_dict[key] == value:
+            return key
+    raise ValueError("Unrecognized dict value")
 
 class Vehicle(object):
     
@@ -141,6 +187,9 @@ class Frame(object):
         
     def collect_objects(self):
         pass 
+    
+    def unique_obj(self):
+        return set([person.object_track_id for person in self.persons])
 
 class Sequence(object):
     
@@ -148,7 +197,16 @@ class Sequence(object):
         super().__init__()
         self.seq_name:str = seq_name
         self.frames:List[Frame] = []
-
+        
+    def seq_obj_ids(self):
+        obj_ids = set()
+        for frame in self.frames:
+            obj_ids.update(frame.unique_obj())
+        return obj_ids
+    
+    def to_tensor(self):
+        obj_ids = self.seq_obj_ids()
+        pass 
 class TITANDataset(Dataset):
     
     def __init__(self, pifpaf_out=None, dataset_dir=None, pickle_dir=None, use_pickle=True, split="train") -> None:
@@ -210,11 +268,23 @@ class TITANSimpleDataset(Dataset):
         without considering temporal and spatial relations 
     """
     
-    def __init__(self, titan_dataset:TITANDataset) -> None:
+    def __init__(self, titan_dataset:TITANDataset, merge_cls=False) -> None:
         super().__init__()
+        """ merge_cls: remove the unlearnable classes, and merge the hierarchical labels into one,
+                       see `self.merge_labels` for details 
+        """
+        self.split = titan_dataset.split
+        self.merge_cls = merge_cls
         frames = self.form_frames(titan_dataset.seqs)
         self.all_poses, self.all_labels = self.get_poses_from_frames(frames)
-        
+        if self.merge_cls:
+            self.n_cls = [len(np.unique(list(Person.valid_action_dict.values())))]
+            print("The simplified {} dataset consists of: \n {}".format(self.split, self.data_statistics()))
+            print("In percentage it would be")
+            print_dict_in_percentage(self.data_statistics())
+        else:
+            self.n_cls = [len(getattr(Person, category + "_dict")) for category in Person.action_category]
+
     def __getitem__(self, index):
         return self.all_poses[index], self.all_labels[index]
     
@@ -228,21 +298,27 @@ class TITANSimpleDataset(Dataset):
             all_frames.extend(seq.frames)
         return all_frames
     
-    @staticmethod
-    def get_poses_from_frames(frames:List[Frame]):
+    def get_poses_from_frames(self, frames:List[Frame]):
         all_poses, all_labels = [], []
         # communicative, complex_context, atomic, simple_context, transporting
         
         for frame in frames:
             for person in frame.persons:
-                all_poses.append(person.key_points)
-                all_labels.append([person.communicative, 
-                                   person.complex_context, 
-                                   person.atomic, 
-                                   person.simple_context, 
-                                   person.transporting])
-
-        return all_poses, all_labels
+                if self.merge_cls:
+                    valid, pose, label = self.merge_labels(person)
+                    if not valid:
+                        continue
+                else:
+                    pose = person.key_points
+                    label = [person.communicative, 
+                            person.complex_context, 
+                            person.atomic, 
+                            person.simple_context, 
+                            person.transporting]
+                all_poses.append(pose)
+                all_labels.append(label)
+        # TODO convert to numpy array
+        return np.array(all_poses), np.array(all_labels)
 
     @staticmethod
     def collate(list_of_pairs):
@@ -252,6 +328,62 @@ class TITANSimpleDataset(Dataset):
             label_list.append(label)
         return torch.tensor(pose_list, dtype=torch.float32), torch.tensor(label_list, dtype=torch.long)
     
+    def merge_labels(self, person:Person):
+        
+        atomic_action = person.search_key("atomic")
+        simple_action = person.search_key("simple_context")
+        pose = person.key_points
+        
+        # if the person is biking (or motocycling), then simple context action 
+        # will override atomic actions
+        if simple_action in person.valid_action_dict.keys():
+            valid = True
+            label = person.valid_action_dict.get(simple_action)
+        # record the person's atomic action if it's learnable 
+        elif atomic_action in person.valid_action_dict.keys():
+            valid = True
+            label = person.valid_action_dict.get(atomic_action)
+        else:
+            valid = False
+            label = None
+        
+        return valid, pose, [label]
+    
+    def data_statistics(self):
+        """ count the number of instances 
+        """ 
+        if self.merge_cls:
+            label, count = np.unique(self.all_labels, return_counts=True)
+            stat_dict = {search_key(Person.valid_action_dict, l):c for l, c in zip(label, count)}
+            return stat_dict
+        else:
+            raise NotImplementedError
+    
+    
+class TITANPatchDataset(Dataset):
+    """ crop patches from titan images
+
+    """
+    def __init__(self) -> None:
+        super().__init__()
+
+class TITANSeqDataset(Dataset):
+    
+    def __init__(self, titan_dataset:TITANDataset) -> None:
+        super().__init__()
+        self.seqs = [seq.to_tensor() for seq in titan_dataset.seqs]
+
+    def __len__(self):
+        return len(self.seqs)
+    
+    def __getitem__(self, index):
+        return self.seqs[index]
+    
+    @staticmethod
+    def collate(list_of_pairs):
+        
+        pass 
+
 def get_all_clip_names(pifpaf_out):
     all_clip_dirs = glob.glob(pifpaf_out+"*", recursive=True)
     clips = [name.replace("\\", "/").split(sep="/")[-1] for name in all_clip_dirs]
@@ -387,34 +519,10 @@ def pickle_all_sequences(args):
     pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
     construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=False)
 
-def search_key(person, category):
-    label_dict = getattr(person, category + "_dict")
-    for key in label_dict.keys():
-        if label_dict[key] == getattr(person, category):
-            return key
-
-def simplify_key(key:str):
-    simplify_dict = {'getting in 4 wheel vehicle': 'getting in 4 wv',
-                     'getting off 2 wheel vehicle': "getting off 2 wv",
-                     "getting on 2 wheel vehicle":'getting on 2 wv',
-                     'getting out of 4 wheel vehicle':'getting out of 4 wv',
-                     "crossing a street at pedestrian crossing":"crossing legally",
-                     "jaywalking (illegally crossing NOT at pedestrian crossing)":"crossing illegally",
-                     "waiting to cross street":"waiting to cross",
-                     "walking along the side of the road": 'walking on the side',
-                     'carrying with both hands':"carrying",
-                     "none of the above":"none"
-                     }
-    if key in simplify_dict.keys():
-        return simplify_dict[key]
-    else:
-        return key
-
 def print_dict_in_percentage(dict_record:Dict[str, int]):
     total_count = sum(list(dict_record.values()))
-    print()
     for key, value in dict_record.items():
-        print("\'{}\':{:.2f}%".format(simplify_key(key), value/total_count*100))
+        print("\'{}\':{:.2f}%".format(Person.simplify_key(key), value/total_count*100))
     print()
     
 def calc_anno_distribution(args):
@@ -433,11 +541,11 @@ def calc_anno_distribution(args):
         for seq in dataset.seqs:
             for frame in seq.frames:
                 for person in frame.persons:
-                    communicative[search_key(person, "communicative")] += 1
-                    complex_context[search_key(person, "complex_context")] += 1
-                    atomic[search_key(person, "atomic")] += 1
-                    simple_context[search_key(person, "simple_context")] += 1
-                    transporting[search_key(person, "transporting")] += 1
+                    communicative[person.search_key("communicative")] += 1
+                    complex_context[person.search_key("complex_context")] += 1
+                    atomic[person.search_key("atomic")] += 1
+                    simple_context[person.search_key("simple_context")] += 1
+                    transporting[person.search_key("transporting")] += 1
                     
                     
         print("For the {} set:".format(split), sep="\n")
@@ -460,33 +568,45 @@ def test_forward(args):
     pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
 
     dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True)
-    simple_dataset = TITANSimpleDataset(dataset)
+    simple_dataset = TITANSimpleDataset(dataset, merge_cls=args.merge_cls)
     dataloader = DataLoader(simple_dataset, batch_size=2, shuffle=True, collate_fn=TITANSimpleDataset.collate)
 
-    model = MultiHeadMonoLoco(input_size=17*2).to(device)
-    criterion = MultiHeadClfLoss()
+    model = MultiHeadMonoLoco(input_size=17*2, output_size=simple_dataset.n_cls).to(device)
+    criterion = MultiHeadClfLoss(n_tasks=len(simple_dataset.n_cls), imbalance="focal", gamma=2, device=device)
     for poses, labels in dataloader:
         poses, labels = poses.to(device), labels.to(device)
         pred = model(poses)
         loss = criterion(pred, labels)
         print(loss)
+
+def test_seq_dataset(args):
+    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
+    dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True)
+    seq_dataset = TITANSeqDataset(dataset)
+    dataloader = DataLoader(seq_dataset, batch_size=2, shuffle=True, collate_fn=TITANSeqDataset.collate)
+    
+    for poses, labels in dataloader:
+        print(poses.shape, labels.shape)
     
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser() 
     parser.add_argument("--base_dir", type=str, default="./", help="default root working directory")
     parser.add_argument("--function", type=str, default="None", help="which function to call")
-    args = parser.parse_args(["--base_dir", "codes/", "--function", "label_stats"])
+    parser.add_argument("--merge-cls", action="store_true", help="remove unlearnable, merge 5 labels into one")
+    args = parser.parse_args()
 
     function_dict = {"annotation": get_titan_att_types, 
                      "pickle": pickle_all_sequences, 
                      "dist":calc_anno_distribution,
-                     "label_stats": calc_anno_distribution}
+                     "label_stats": calc_anno_distribution, 
+                     "forward":test_forward}
 
     if args.function in function_dict.keys():
         function_dict.get(args.function)(args)
 
     # test_construct_dataset(args)
     # test_forward(args)
+    # test_seq_dataset(args)
 
 

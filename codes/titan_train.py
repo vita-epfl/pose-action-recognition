@@ -30,7 +30,6 @@ def manual_add_arguments(args):
     """
         manually specify the folder directory
     """
-    args.output_size = [4, 7, 9, 13, 4]
     args.pifpaf_out = "{}/out/pifpaf_results/".format(args.base_dir) # pifpaf output folder, end with /
     args.dataset_dir = "{}/data/TITAN/".format(args.base_dir) # original TITAN dataset folder, should end with / 
     args.save_dir = "{}/out/".format(args.base_dir) # saved pickle file of the poses, should end with /
@@ -55,13 +54,14 @@ parser.add_argument("--dropout", type=float, default=0.2, help="dropout rate")
 parser.add_argument("--n_stage", type=int, default=3, help="number of stages in a monoloco model")
 
 # loss related arguments 
-parser.add_argument("--n_tasks", type=int, default=5, help="number of tasks for multi-task loss, 5 for TITAN")
+# parser.add_argument("--n_tasks", type=int, default=5, help="number of tasks for multi-task loss, 5 for TITAN")
 parser.add_argument("--imbalance", type=str, default="manual", choices=["manual", "focal", "both"], 
                     help="method to tackle imbalanced data")
 parser.add_argument("--gamma", type=float, default=1.5, help="the gamma parameter for focal loss, should be a positive integer")
 parser.add_argument("--anneal_factor", type=float, default=0.0, help="annealing factor for alpha balanced cross entropy")
 parser.add_argument("--uncertainty", action="store_true", help="use task uncertainty")
 parser.add_argument("--mask_cls", action="store_true", help="maskout some unlearnable classes")
+parser.add_argument("--merge_cls", action="store_true", help="completely remove unlearnable classes, and merge the multiple action sets into one")
 
 parser.add_argument("--task_name", type=str, default="Baseline", help="a name for this training task, used in save name")
 parser.add_argument("--select_best", action="store_true", help="select the checkpoint with best validation accuracy")
@@ -72,7 +72,7 @@ parser.add_argument("--save_model", action="store_true", help="store trained net
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
 
 if __name__ == "__main__":
-
+    # ["--base_dir", "codes", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
     args = parser.parse_args()
     args = manual_add_arguments(args)
     
@@ -81,16 +81,16 @@ if __name__ == "__main__":
     valset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "val")
     testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "test")
     
-    trainset = TITANSimpleDataset(trainset)
-    valset = TITANSimpleDataset(valset)
-    testset = TITANSimpleDataset(testset)
+    trainset = TITANSimpleDataset(trainset, merge_cls=args.merge_cls)
+    valset = TITANSimpleDataset(valset, merge_cls=args.merge_cls)
+    testset = TITANSimpleDataset(testset, merge_cls=args.merge_cls)
     
     if args.debug:
         print("using a 2 epochs and 1000 samples for debugging")
         args.num_epoch = 2
         trainset = Subset(trainset, indices=range(1000))
-        valset = Subset(trainset, indices=range(1000))
-        testset = Subset(trainset, indices=range(1000))
+        valset = Subset(valset, indices=range(1000))
+        testset = Subset(testset, indices=range(1000))
         
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, 
                              num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
@@ -99,7 +99,9 @@ if __name__ == "__main__":
     testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=False,
                             num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
     
-    model = MultiHeadMonoLoco(args.input_size, args.output_size, args.linear_size, args.dropout, args.n_stage).to(device)
+    output_size = trainset.n_cls if not args.debug else trainset.dataset.n_cls
+    
+    model = MultiHeadMonoLoco(args.input_size, output_size, args.linear_size, args.dropout, args.n_stage).to(device)
     
     # load a pretrained model if specified 
     if args.test_only and args.ckpt is not None:
@@ -110,7 +112,7 @@ if __name__ == "__main__":
         except:
             print("failed to load pretrained, train from scratch instead")
         
-    criterion = MultiHeadClfLoss(n_tasks=args.n_tasks, imbalance=args.imbalance, gamma=args.gamma, 
+    criterion = MultiHeadClfLoss(n_tasks=len(output_size), imbalance=args.imbalance, gamma=args.gamma, 
                                  anneal_factor=args.anneal_factor, uncertainty=args.uncertainty, 
                                  device=device, mask_cls=args.mask_cls)
     # criterion.parameters will be an empty list if uncertainty is false 
@@ -158,8 +160,11 @@ if __name__ == "__main__":
     
     print("In general, overall accuracy {:.4f} avg Jaccard {:.4f} avg F1 {:.4f}".format(
                                 np.mean(acc), np.mean(jac), np.mean(f1)))
+    if args.merge_cls:
+        action_hierarchy = ["valid_action"]
+    else:
+        action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
     
-    action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
     for idx, layer in enumerate(action_hierarchy):
         # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
         print("")
@@ -168,7 +173,7 @@ if __name__ == "__main__":
         print("Accuracy for each class: {}".format(per_class_acc(cfx[idx])))
         print("Average Precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
         print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
-        print("The corresponding classes are {}".format(Person.get_attr_dict(type=layer)))
+        print("The corresponding classes are {}".format(Person.get_attr_dict(layer)))
         print(cfx[idx])
         print("")
         

@@ -2,7 +2,7 @@ import torch
 import numpy as np 
 import torch.nn as nn 
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
 from sklearn.metrics import (
     f1_score, 
@@ -35,7 +35,12 @@ def get_all_predictions(model:nn.Module, testloader:DataLoader):
     
     device = next(model.parameters()).device
     model.eval()
-    label_list, result_list, score_list = [[[] for _ in range(5)] for _ in range(3)]
+    if isinstance(testloader.dataset, Subset):
+        n_tasks = len(testloader.dataset.dataset.n_cls)
+    else:
+        n_tasks = len(testloader.dataset.n_cls)
+        
+    label_list, result_list, score_list = [[[] for _ in range(n_tasks)] for _ in range(3)]
     with torch.no_grad():
         for pose, label in testloader:
             pose, label = pose.to(device), label.to(device)
