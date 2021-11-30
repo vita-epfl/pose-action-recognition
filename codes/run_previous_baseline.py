@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, Subset
 
 from models import MultiHeadMonoLoco
 from utils.titan_metrics import per_class_precision, per_class_recall, per_class_f1
-from datasets.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
+from titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
 
 from sklearn.metrics import (
     f1_score, 
