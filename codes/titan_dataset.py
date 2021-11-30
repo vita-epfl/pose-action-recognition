@@ -10,11 +10,13 @@ import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
 
+from PIL import Image
 from typing import List, Set, Dict, Tuple, Optional
 from torch.utils.data import Dataset, DataLoader, Subset
-from utils.iou import get_iou_matches
 from models import MultiHeadMonoLoco, MonolocoModel
+from utils.iou import get_iou_matches
 from utils.losses import MultiHeadClfLoss
+
 
 np.set_printoptions(precision=3, suppress=True)
 
@@ -220,6 +222,10 @@ class TITANDataset(Dataset):
             split: 'all', 'train', 'val' or 'test'
         """
         super().__init__()
+        self.pifpaf_out = pifpaf_out
+        self.dataset_dir = dataset_dir
+        self.pickle_dir = pickle_dir
+        self.use_pickle = use_pickle
         self.split = split
         self.seqs:List[Sequence] = []
         if pickle_dir is not None and use_pickle:
@@ -275,12 +281,13 @@ class TITANSimpleDataset(Dataset):
                  use_img=False, 
                  relative_kp=False) -> None:
         super().__init__()
-        """ merge_cls: remove the unlearnable classes, and merge the hierarchical labels into one,
+        """ merge_cls: remove the unlearnable classes, and merge the hierarchical labels into one set,
                        see `self.merge_labels` for details 
             inflate: copy the samples of minority classes, so the training process won't be overwhelmed by majority class
             use_img: for each person, crop an image patch from the frame, don't use poses
             relative_kp: convert a keypoint from absolute coordinate to center + relative coordinate
         """
+        self.dataset_dir = titan_dataset.dataset_dir
         self.split = titan_dataset.split
         self.merge_cls = merge_cls
         self.inflate = inflate
@@ -292,6 +299,8 @@ class TITANSimpleDataset(Dataset):
         if not self.use_img:
             self.all_poses, self.all_labels = self.get_poses_from_frames(frames) 
         else:
+            # all_poses is actually images here, use this name for convenience
+            print("Cropping image patchs from the original frame")
             self.all_poses, self.all_labels = self.get_patches_from_frames(frames)
             
         if self.merge_cls:
@@ -306,7 +315,14 @@ class TITANSimpleDataset(Dataset):
             self.print_statistics()
 
     def __getitem__(self, index):
-        return self.all_poses[index], self.all_labels[index]
+        if not self.use_img:
+            pose = self.all_poses[index]
+            label = self.all_labels[index]
+            return pose, label
+        else:
+            pose = np.array(self.all_poses[index], dtype=np.float32) / 255
+            label = self.all_labels[index]
+            return pose, label
     
     def __len__(self):
         return len(self.all_poses)
@@ -352,7 +368,8 @@ class TITANSimpleDataset(Dataset):
     @staticmethod
     def convert_to_relative_coord(all_poses):
         """convert the key points from absolute coordinate to center+relative coordinate
-
+            all_poses shape (n_samples, n_keypoints, n_dim)
+            
         COCO_KEYPOINTS = [
             'nose',            # 0
             'left_eye',        # 1
@@ -393,7 +410,53 @@ class TITANSimpleDataset(Dataset):
         return converted_poses
     
     def get_patches_from_frames(self, frames:List[Frame]):
-        raise NotImplementedError 
+        """ obtain image patches from frames
+
+        Args:
+            frames (List[Frame]): [description]
+
+        Returns:
+            pose_array: image array of shape (n_samples, 3, 224, 224), basically (N, C, H, W)
+            label_array: shape (n_samples, n_cls)
+        """
+        all_poses, all_labels = [], []
+        for frame in frames:
+            img_file_path = "./{}/images_anonymized/{}/images/{}".format(self.dataset_dir, frame.seq_name, frame.frame_name)
+            # like the example in pifpaf doc https://openpifpaf.github.io/predict_api.html
+            frame_img = Image.open(img_file_path).convert("RGB") 
+            for person in frame.persons:
+
+                # obtain labels 
+                if self.merge_cls:
+                    valid, _, label = self.merge_labels(person)
+                    if not valid:
+                        continue
+                else:
+                    label = [person.communicative, 
+                            person.complex_context, 
+                            person.atomic, 
+                            person.simple_context, 
+                            person.transporting]
+                    
+                # use ground truth box for training, use detection box for validation and testing 
+                bbox = person.gt_box if self.split=="train" else person.pred_box # both are x y w h
+                bbox = enlarge_bbox(bbox, enlarge=1) # make the box larger than the person, still x y w h
+                # crop box has to be (x1, y1, x2, y2)
+                crop_box = [bbox[0], bbox[1], bbox[0]+bbox[2], bbox[1]+bbox[3]]
+                patch = frame_img.crop(box=crop_box)
+                # the shape 224, 224 is required in resnet pytorch example, see the link below
+                # https://pytorch.org/tutorials/beginner/finetuning_torchvision_models_tutorial.html#initialize-and-reshape-the-networks
+                patch = patch.resize((224, 224)) 
+                pose = np.asarray(patch).astype(np.uint8) # use this name "pose" for convenience ... 
+                pose = pose.transpose((2, 0, 1)) # size (224, 224, 3) => (3, 224, 224)
+                all_poses.append(pose)
+                all_labels.append(label)
+        
+        pose_array = np.array(all_poses)
+        label_array = np.array(all_labels)
+        
+        return pose_array, label_array
+            
 
     def inflate_minority_classes(self):
         
@@ -473,13 +536,6 @@ class TITANSimpleDataset(Dataset):
         print("The simplified {} dataset consists of: \n {}".format(self.split, self.data_statistics()))
         print("In percentage it would be")
         print_dict_in_percentage(self.data_statistics())
-    
-class TITANPatchDataset(Dataset):
-    """ crop patches from titan images
-
-    """
-    def __init__(self) -> None:
-        super().__init__()
 
 class TITANSeqDataset(Dataset):
     
@@ -503,6 +559,18 @@ def get_all_clip_names(pifpaf_out):
     clips = [name.replace("\\", "/").split(sep="/")[-1] for name in all_clip_dirs]
     clips = sorted(clips, key=lambda item: int(item.split(sep="_")[-1]))
     return clips
+
+def enlarge_bbox(bb, enlarge=1):
+    """
+    Convert the bounding box from Pifpaf to an enlarged version of it 
+    """
+    delta_h = (bb[3]) / (7 * enlarge)
+    delta_w = (bb[2]) / (3.5 * enlarge)
+    bb[0] -= delta_w
+    bb[1] -= delta_h
+    bb[2] += delta_w
+    bb[3] += delta_h
+    return bb
 
 def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=True):
     """ read the pifpaf prediction results (json files), match the detections with ground truth,

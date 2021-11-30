@@ -11,10 +11,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as transforms
+from torch.utils import model_zoo
 from torch.utils.data import DataLoader, Subset
 torch.autograd.set_detect_anomaly(True)
 
-from models import MultiHeadMonoLoco
+from models import MultiHeadMonoLoco, multihead_resnet
 from utils.titan_metrics import compute_accuracy, get_all_predictions, get_eval_metrics, per_class_precision, per_class_recall, per_class_f1
 from utils.losses import MultiHeadClfLoss
 from titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
@@ -93,19 +94,23 @@ if __name__ == "__main__":
     valset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "val")
     testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "test")
     
+    if args.debug:
+        print("using a 2 epochs and first 2 sequences for debugging")
+        args.num_epoch = 2
+        trainset.seqs = trainset.seqs[:2]
+        valset.seqs = trainset.seqs[:2]
+        testset.seqs = trainset.seqs[:2]
+        for i in range(2):
+            trainset.seqs[i].frames = trainset.seqs[i].frames[:5]
+            valset.seqs[i].frames = valset.seqs[i].frames[:5]
+            testset.seqs[i].frames = testset.seqs[i].frames[:5]
+        
     trainset = TITANSimpleDataset(trainset, merge_cls=args.merge_cls, 
                                   inflate=args.inflate, use_img=args.use_img,relative_kp=args.relative_kp)
     valset = TITANSimpleDataset(valset, merge_cls=args.merge_cls,
                                 inflate=args.inflate, use_img=args.use_img,relative_kp=args.relative_kp)
     testset = TITANSimpleDataset(testset, merge_cls=args.merge_cls,
                                  inflate=args.inflate, use_img=args.use_img,relative_kp=args.relative_kp)
-    
-    if args.debug:
-        print("using a 2 epochs and 1000 samples for debugging")
-        args.num_epoch = 2
-        trainset = Subset(trainset, indices=range(3000))
-        valset = Subset(valset, indices=range(3000))
-        testset = Subset(testset, indices=range(3000))
         
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, 
                              num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
@@ -114,10 +119,16 @@ if __name__ == "__main__":
     testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=False,
                             num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
     
-    output_size = trainset.n_cls if not args.debug else trainset.dataset.n_cls
-    input_size = trainset.n_feature if not args.debug else trainset.dataset.n_feature
+    input_size, output_size = trainset.n_feature, trainset.n_cls
     
-    model = MultiHeadMonoLoco(input_size, output_size, args.linear_size, args.dropout, args.n_stage).to(device)
+    if not args.use_img:
+        model = MultiHeadMonoLoco(input_size, output_size, args.linear_size, args.dropout, args.n_stage).to(device)
+        model_params = list(model.parameters())
+    else:
+        assert args.merge_cls, "use --merge_cls in commandline"
+        model = multihead_resnet(output_size=output_size)
+        model_params = list(model.fc.parameters()) # fine tune the last layer only 
+    model.to(device)    
     
     # load a pretrained model if specified 
     if args.test_only and args.ckpt is not None:
@@ -131,8 +142,10 @@ if __name__ == "__main__":
     criterion = MultiHeadClfLoss(n_tasks=len(output_size), imbalance=args.imbalance, gamma=args.gamma, 
                                  anneal_factor=args.anneal_factor, uncertainty=args.uncertainty, 
                                  device=device, mask_cls=args.mask_cls)
+    loss_params = list(criterion.parameters()) 
+    
     # criterion.parameters will be an empty list if uncertainty is false 
-    params = list(model.parameters()) + list(criterion.parameters()) 
+    params = model_params + loss_params
     optimizer = optim.Adam(params=params, lr=args.lr)
     
     # training loop 
@@ -166,8 +179,12 @@ if __name__ == "__main__":
         test_acc_list.append(test_acc)
     
     if args.save_model:
+        task_name = args.task_name
+        slurm_job_id = os.environ.get("SLURM_JOBID", None)
+        if slurm_job_id is not None:
+            task_name = task_name + str(slurm_job_id)
         time_suffix = "{}".format(datetime.datetime.now()).replace(" ", "_").replace(":", ".")
-        filename = "{}/TITAN_{}_{}.pth".format(args.weight_dir, args.task_name, time_suffix)
+        filename = "{}/TITAN_{}_{}.pth".format(args.weight_dir, task_name, time_suffix)
         torch.save(model.state_dict(), filename)
         print("model saved to {}".format(filename))
     
