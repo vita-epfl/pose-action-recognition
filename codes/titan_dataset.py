@@ -268,22 +268,42 @@ class TITANSimpleDataset(Dataset):
         without considering temporal and spatial relations 
     """
     
-    def __init__(self, titan_dataset:TITANDataset, merge_cls=False) -> None:
+    def __init__(self, 
+                 titan_dataset:TITANDataset, 
+                 merge_cls=False, 
+                 inflate:float=None, 
+                 use_img=False, 
+                 relative_kp=False) -> None:
         super().__init__()
         """ merge_cls: remove the unlearnable classes, and merge the hierarchical labels into one,
                        see `self.merge_labels` for details 
+            inflate: copy the samples of minority classes, so the training process won't be overwhelmed by majority class
+            use_img: for each person, crop an image patch from the frame, don't use poses
+            relative_kp: convert a keypoint from absolute coordinate to center + relative coordinate
         """
         self.split = titan_dataset.split
         self.merge_cls = merge_cls
+        self.inflate = inflate
+        self.use_img = use_img
+        self.relative_kp = relative_kp
+        self.n_feature = None # number of features, will be set in self.get_poses/patches_from_frames(frames) 
         frames = self.form_frames(titan_dataset.seqs)
-        self.all_poses, self.all_labels = self.get_poses_from_frames(frames)
+        # use keypoints by default, also possible to use patches 
+        if not self.use_img:
+            self.all_poses, self.all_labels = self.get_poses_from_frames(frames) 
+        else:
+            self.all_poses, self.all_labels = self.get_patches_from_frames(frames)
+            
         if self.merge_cls:
             self.n_cls = [len(np.unique(list(Person.valid_action_dict.values())))]
-            print("The simplified {} dataset consists of: \n {}".format(self.split, self.data_statistics()))
-            print("In percentage it would be")
-            print_dict_in_percentage(self.data_statistics())
+            self.print_statistics()
         else:
             self.n_cls = [len(getattr(Person, category + "_dict")) for category in Person.action_category]
+            
+        if self.split=="train" and isinstance(self.inflate, float): # only inflate samples in training
+            self.all_poses, self.all_labels = self.inflate_minority_classes()
+            print("after inflating the minority classes")
+            self.print_statistics()
 
     def __getitem__(self, index):
         return self.all_poses[index], self.all_labels[index]
@@ -317,9 +337,98 @@ class TITANSimpleDataset(Dataset):
                             person.transporting]
                 all_poses.append(pose)
                 all_labels.append(label)
-        # TODO convert to numpy array
-        return np.array(all_poses), np.array(all_labels)
+                
+        pose_array = np.array(all_poses)
+        label_array = np.array(all_labels)
+        
+        if self.relative_kp:
+            pose_array = self.convert_to_relative_coord(pose_array)
+        
+        self.n_feature = np.prod(pose_array.shape[1:])
+        
+        return pose_array, label_array
+    
+    @staticmethod
+    def convert_to_relative_coord(all_poses):
+        """convert the key points from absolute coordinate to center+relative coordinate
 
+        COCO_KEYPOINTS = [
+            'nose',            # 0
+            'left_eye',        # 1
+            'right_eye',       # 2
+            'left_ear',        # 3
+            'right_ear',       # 4
+            'left_shoulder',   # 5
+            'right_shoulder',  # 6
+            'left_elbow',      # 7
+            'right_elbow',     # 8
+            'left_wrist',      # 9
+            'right_wrist',     # 10
+            'left_hip',        # 11
+            'right_hip',       # 12
+            'left_knee',       # 13
+            'right_knee',      # 14
+            'left_ankle',      # 15
+            'right_ankle',     # 16
+        ]
+
+        Args:
+            all_poses (np.ndarray): pose array, size (batch_size, V, C)
+
+        Returns:
+            converted_poses: size (batch_size, V+1, C)
+        """
+        left_shoulder = all_poses[:, 5, :]
+        right_shoulder = all_poses[:, 6, :]
+        left_hip = all_poses[:, 11, :]
+        right_hip = all_poses[:, 12, :]
+        top_mid = 0.5*(left_shoulder + right_shoulder)
+        bottom_mid = 0.5*(left_hip + right_hip)
+        mid = 0.5*(top_mid + bottom_mid)
+        mid = np.expand_dims(mid, axis=1)
+        relative_coord = all_poses - mid 
+        converted_poses = np.concatenate((relative_coord, mid), axis=1)
+        
+        return converted_poses
+    
+    def get_patches_from_frames(self, frames:List[Frame]):
+        raise NotImplementedError 
+
+    def inflate_minority_classes(self):
+        
+        assert self.merge_cls, "must merge classes and then inflate, use --merge_cls in commandline"
+        print("duplicating the minority class to approximately {:.1f}% of the majority class".format(self.inflate*100))
+        
+        original_poses, original_labels = self.all_poses, self.all_labels
+        sample_count = self.data_statistics()
+        max_val = max(sample_count.values())
+        total = sum(sample_count.values())
+        
+        copy_pose_list, copy_label_list = [], []
+        for key, value in sample_count.items():
+            cls_idx = (original_labels == Person.valid_action_dict[key])
+            percentage = value / total
+            if percentage > 0.15: # don't inflate if the original data accounts for more than 15%
+                continue
+            num_duplicates = round(self.inflate*max_val / (value+10)) - 1
+            if num_duplicates < 1:
+                continue
+            
+            copied_poses = np.repeat(original_poses[cls_idx.flatten()], num_duplicates, axis=0)
+            copied_labels = np.repeat(original_labels[cls_idx.flatten()], num_duplicates, axis=0)
+            copy_pose_list.append(copied_poses)
+            copy_label_list.append(copied_labels)
+        
+        copy_pose_array = np.concatenate(copy_pose_list, axis=0)
+        copy_label_array = np.concatenate(copy_label_list, axis=0)
+        
+        inflated_pose = np.concatenate((original_poses, copy_pose_array), axis=0)
+        inflated_labels = np.concatenate((original_labels, copy_label_array), axis=0)
+        
+        return inflated_pose, inflated_labels
+            
+        
+            
     @staticmethod
     def collate(list_of_pairs):
         pose_list, label_list = [], []
@@ -358,7 +467,11 @@ class TITANSimpleDataset(Dataset):
             return stat_dict
         else:
             raise NotImplementedError
-    
+        
+    def print_statistics(self):
+        print("The simplified {} dataset consists of: \n {}".format(self.split, self.data_statistics()))
+        print("In percentage it would be")
+        print_dict_in_percentage(self.data_statistics())
     
 class TITANPatchDataset(Dataset):
     """ crop patches from titan images
