@@ -342,6 +342,7 @@ class TITANSimpleDataset(Dataset):
         label_array = np.array(all_labels)
         
         if self.relative_kp:
+            print("Converting the original coordinates to center+relative")
             pose_array = self.convert_to_relative_coord(pose_array)
         
         self.n_feature = np.prod(pose_array.shape[1:])
