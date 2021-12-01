@@ -16,7 +16,7 @@ from torch.utils.data import Dataset, DataLoader, Subset
 from models import MultiHeadMonoLoco, MonolocoModel
 from utils.iou import get_iou_matches
 from utils.losses import MultiHeadClfLoss
-
+from multiprocessing import Pool
 
 np.set_printoptions(precision=3, suppress=True)
 
@@ -301,7 +301,7 @@ class TITANSimpleDataset(Dataset):
         else:
             # all_poses is actually images here, use this name for convenience
             print("Cropping image patchs from the original frame")
-            self.all_poses, self.all_labels = self.get_patches_from_frames(frames)
+            self.all_poses, self.all_labels = self.get_patches_from_frames_mp(frames)
             
         if self.merge_cls:
             self.n_cls = [len(np.unique(list(Person.valid_action_dict.values())))]
@@ -409,6 +409,54 @@ class TITANSimpleDataset(Dataset):
         
         return converted_poses
     
+    def process_one_frame(self, frame:Frame):
+        
+        all_poses, all_labels = [], []
+        img_file_path = "./{}/images_anonymized/{}/images/{}".format(self.dataset_dir, frame.seq_name, frame.frame_name)
+        # like the example in pifpaf doc https://openpifpaf.github.io/predict_api.html
+        frame_img = Image.open(img_file_path).convert("RGB") 
+        for person in frame.persons:
+
+            # obtain labels 
+            if self.merge_cls:
+                valid, _, label = self.merge_labels(person)
+                if not valid:
+                    continue
+            else:
+                label = [person.communicative, 
+                        person.complex_context, 
+                        person.atomic, 
+                        person.simple_context, 
+                        person.transporting]
+                
+            # use ground truth box for training, use detection box for validation and testing 
+            bbox = person.gt_box if self.split=="train" else person.pred_box # both are x y w h
+            bbox = enlarge_bbox(bbox, enlarge=1) # make the box larger than the person, still x y w h
+            # crop box has to be (x1, y1, x2, y2)
+            crop_box = [bbox[0], bbox[1], bbox[0]+bbox[2], bbox[1]+bbox[3]]
+            patch = frame_img.crop(box=crop_box)
+            # the shape 224, 224 is required in resnet pytorch example, see the link below
+            # https://pytorch.org/tutorials/beginner/finetuning_torchvision_models_tutorial.html#initialize-and-reshape-the-networks
+            patch = patch.resize((224, 224)) 
+            pose = np.asarray(patch).astype(np.uint8) # use this name "pose" for convenience ... 
+            pose = pose.transpose((2, 0, 1)) # size (224, 224, 3) => (3, 224, 224)
+            all_poses.append(pose)
+            all_labels.append(label)
+            
+        return all_poses, all_labels
+    
+    def get_patches_from_frames_mp(self, frames:List[Frame]):
+        
+        with Pool(processes=8) as p:
+            combined_results = p.map(self.process_one_frame, frames)
+            
+        final_poses, final_labels = [], []
+        for frame_result in combined_results:
+            final_poses.extend(frame_result[0])
+            final_labels.extend(frame_result[1])
+        
+        return final_poses, final_labels
+        
     def get_patches_from_frames(self, frames:List[Frame]):
         """ obtain image patches from frames
 
