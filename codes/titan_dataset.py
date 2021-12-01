@@ -301,7 +301,7 @@ class TITANSimpleDataset(Dataset):
         else:
             # all_poses is actually images here, use this name for convenience
             print("Cropping image patchs from the original frame")
-            self.all_poses, self.all_labels = self.get_patches_from_frames_mp(frames)
+            self.all_poses, self.all_labels = self.get_patches_from_frames(frames)
             
         if self.merge_cls:
             self.n_cls = [len(np.unique(list(Person.valid_action_dict.values())))]
