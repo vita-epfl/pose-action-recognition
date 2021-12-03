@@ -23,6 +23,8 @@ class MultiHeadLinear(nn.Module):
         return predictions
 
 def multihead_resnet(output_size:List[int], ckpt_path=None, pretrained=False):
+    if pretrained:
+        print("Using pretrained model from torch hub")
     model = resnet50(pretrained=pretrained)
     if pretrained==False and ckpt_path is not None:
         model.load_state_dict(torch.load(ckpt_path))
