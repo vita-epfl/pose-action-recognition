@@ -78,7 +78,8 @@ class Person(object):
         self.gt_box = [gt_anno[key] for key in ["left", "top", "width", "height"]]
         self.pred_box = pred['bbox']
         self.confidence = pred['score']
-        
+        if "id_" in pred.keys():
+            self.pifpaf_track_id = pred.get("id_", None)
         # attributes provided by titan annotation
         self.age = gt_anno['attributes.Age']
         self.communicative = self.communicative_dict.get(gt_anno['attributes.Communicative'], None) 
