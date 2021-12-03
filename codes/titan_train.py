@@ -54,6 +54,8 @@ parser.add_argument("--workers", type=int, default=0, help="number of workers fo
 parser.add_argument("--linear_size", type=int, default=128, help="size of hidden linear layer")
 parser.add_argument("--dropout", type=float, default=0.2, help="dropout rate")
 parser.add_argument("--n_stage", type=int, default=3, help="number of stages in a monoloco model")
+parser.add_argument("--torchhub_pretrain", action="store_true", help="use a pretrained resnet from torch hub")
+parser.add_argument("--ckpt", default=None, type=str, help="checkpoint file name usually a xxxx.pth file in args.weight_dir")
 
 # dataset related arguments
 parser.add_argument("--merge_cls", action="store_true", 
@@ -78,13 +80,12 @@ parser.add_argument("--mask_cls", action="store_true", help="maskout some unlear
 parser.add_argument("--task_name", type=str, default="Baseline", help="a name for this training task, used in save name")
 parser.add_argument("--select_best", action="store_true", help="select the checkpoint with best validation accuracy")
 parser.add_argument("--test_only", action="store_true", help="run a test on a pretrained model")
-parser.add_argument("--ckpt", default=None, type=str, help="checkpoint file name usually a xxxx.pth file in args.weight_dir")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
 parser.add_argument("--save_model", action="store_true", help="store trained network")
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
 
 if __name__ == "__main__":
-    # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--inflate", "0.2", "--relative_kp"]
+    # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--relative_kp", "--use_img", "--ckpt", "resnet50.pth"]
     # ["--base_dir", "codes", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
     args = parser.parse_args()
     args = manual_add_arguments(args)
@@ -126,8 +127,13 @@ if __name__ == "__main__":
         model_params = list(model.parameters())
     else:
         assert args.merge_cls, "use --merge_cls in commandline"
-        model = multihead_resnet(output_size=output_size)
-        model_params = list(model.fc.parameters()) # fine tune the last layer only 
+        ckpt = "{}/{}".format(args.weight_dir, args.ckpt) if args.ckpt else None
+        model = multihead_resnet(output_size=output_size, ckpt_path=ckpt, pretrained=args.torchhub_pretrain)
+        # if pretrain, then train the last layer only 
+        if args.torchhub_pretrain or ckpt:
+            model_params = list(model.fc.parameters())
+        else:
+            model_params = list(model.parameters())
     model.to(device)    
     
     # load a pretrained model if specified 

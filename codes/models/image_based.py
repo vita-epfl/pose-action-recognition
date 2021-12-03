@@ -22,8 +22,10 @@ class MultiHeadLinear(nn.Module):
         
         return predictions
 
-def multihead_resnet(output_size:List[int]):
-    model = resnet50(pretrained=True)
+def multihead_resnet(output_size:List[int], ckpt_path=None, pretrained=False):
+    model = resnet50(pretrained=pretrained)
+    if pretrained==False and ckpt_path is not None:
+        model.load_state_dict(torch.load(ckpt_path))
     in_features = [model.fc.in_features for _ in output_size]
     model.fc = MultiHeadLinear(input_size=in_features, output_size=output_size)
     model.output_size = output_size
