@@ -5,10 +5,12 @@ import argparse
 import datetime
 import matplotlib.pyplot as plt
 
+import ctypes
 import torch
 import torchvision
 import torch.nn as nn
 import torch.optim as optim
+import torch.multiprocessing as mp
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from torch.utils import model_zoo
@@ -85,6 +87,10 @@ parser.add_argument("--save_model", action="store_true", help="store trained net
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
 
 if __name__ == "__main__":
+    
+    mp.set_start_method('spawn')
+    libgcc_s = ctypes.CDLL("/usr/lib64/libgcc_s.so.1")
+    
     # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--relative_kp", "--use_img", "--ckpt", "resnet50.pth"]
     # ["--base_dir", "codes", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
     args = parser.parse_args()
