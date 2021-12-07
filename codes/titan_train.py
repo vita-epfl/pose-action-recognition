@@ -1,4 +1,5 @@
 import os
+import sys 
 import numpy as np
 import copy 
 import argparse
@@ -66,6 +67,8 @@ parser.add_argument("--inflate", type=float, default=None,
                     help="inflate the minority classes to some proportion of the majority class")
 parser.add_argument("--relative_kp", action="store_true", 
                     help="turn the absolute key point coordinates into center + relative")
+parser.add_argument("--rm_center", action="store_true", help="remove the center point")
+parser.add_argument("--normalize", action="store_true", help="divide the (x, y) of a point by (w, h) of the bbox")
 parser.add_argument("--use_img", action="store_true", 
                     help="crop patches from the original image, don't use poses")
 
@@ -89,9 +92,14 @@ parser.add_argument("--verbose", action="store_true", help="being more verbose, 
 if __name__ == "__main__":
     
     mp.set_start_method('spawn')
-    libgcc_s = ctypes.CDLL("/usr/lib64/libgcc_s.so.1")
+    if sys.platform.startswith("linux"):
+        try:
+            libgcc_s = ctypes.CDLL("/usr/lib64/libgcc_s.so.1")
+        except:
+            pass 
     
-    # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--relative_kp", "--use_img", "--ckpt", "resnet50.pth"]
+    # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--use_img"]
+    # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--relative_kp", "--normalize", "--rm_center"]
     # ["--base_dir", "codes", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
     args = parser.parse_args()
     args = manual_add_arguments(args)
@@ -112,12 +120,12 @@ if __name__ == "__main__":
             valset.seqs[i].frames = valset.seqs[i].frames[:5]
             testset.seqs[i].frames = testset.seqs[i].frames[:5]
         
-    trainset = TITANSimpleDataset(trainset, merge_cls=args.merge_cls, 
-                                  inflate=args.inflate, use_img=args.use_img,relative_kp=args.relative_kp)
-    valset = TITANSimpleDataset(valset, merge_cls=args.merge_cls,
-                                inflate=args.inflate, use_img=args.use_img,relative_kp=args.relative_kp)
-    testset = TITANSimpleDataset(testset, merge_cls=args.merge_cls,
-                                 inflate=args.inflate, use_img=args.use_img,relative_kp=args.relative_kp)
+    trainset = TITANSimpleDataset(trainset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
+                                  relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
+    valset = TITANSimpleDataset(valset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
+                                  relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
+    testset = TITANSimpleDataset(testset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
+                                  relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
         
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, 
                              num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)

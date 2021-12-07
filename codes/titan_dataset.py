@@ -106,7 +106,10 @@ class Person(object):
         """ convert a list of actions like [0, 0, ...] into list of strings ["action1", "action2", ...]
         """
         action_str = [] 
-        mappings = [cls.communicative_dict, cls.complex_context_dict, cls.atomic_dict, 
+        if len(list_of_action) == 1:
+            mappings = [cls.valid_action_dict]
+        else:
+            mappings = [cls.communicative_dict, cls.complex_context_dict, cls.atomic_dict, 
                     cls.simple_context_dict, cls.transporting_dict]
         for action, mapping in zip(list_of_action, mappings):
             for key, value in mapping.items():
@@ -280,7 +283,9 @@ class TITANSimpleDataset(Dataset):
                  merge_cls=False, 
                  inflate:float=None, 
                  use_img=False, 
-                 relative_kp=False) -> None:
+                 relative_kp=False,
+                 rm_center=False,
+                 normalize=False) -> None:
         super().__init__()
         """ merge_cls: remove the unlearnable classes, and merge the hierarchical labels into one set,
                        see `self.merge_labels` for details 
@@ -294,6 +299,8 @@ class TITANSimpleDataset(Dataset):
         self.inflate = inflate
         self.use_img = use_img
         self.relative_kp = relative_kp
+        self.rm_center = rm_center
+        self.normalize = normalize
         self.n_feature = None # number of features, will be set in self.get_poses/patches_from_frames(frames) 
         frames = self.form_frames(titan_dataset.seqs)
         # use keypoints by default, also possible to use patches 
@@ -336,7 +343,7 @@ class TITANSimpleDataset(Dataset):
         return all_frames
     
     def get_poses_from_frames(self, frames:List[Frame]):
-        all_poses, all_labels = [], []
+        all_poses, all_labels, all_wh = [], [], []
         # communicative, complex_context, atomic, simple_context, transporting
         
         for frame in frames:
@@ -352,16 +359,23 @@ class TITANSimpleDataset(Dataset):
                             person.atomic, 
                             person.simple_context, 
                             person.transporting]
+                x, y, w, h = person.pred_box
+                if self.normalize:
+                    all_wh.append(np.array([w,h]).reshape(-1, 2))
                 all_poses.append(pose)
                 all_labels.append(label)
-                
+        if self.normalize:
+            wh_array = np.array(all_wh)
         pose_array = np.array(all_poses)
         label_array = np.array(all_labels)
         
         if self.relative_kp:
             print("Converting the original coordinates to center+relative")
             pose_array = self.convert_to_relative_coord(pose_array)
-        
+            if self.rm_center:
+                pose_array = pose_array[:,:17,:]
+            if self.normalize:
+                pose_array = pose_array / wh_array
         self.n_feature = np.prod(pose_array.shape[1:])
         
         return pose_array, label_array
