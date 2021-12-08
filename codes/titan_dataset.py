@@ -115,6 +115,7 @@ class Person(object):
             for key, value in mapping.items():
                 if action == value:
                     action_str.append(cls.simplify_key(key))
+                    break # find the first and then do next 
         return action_str
     
     def search_key(self, category):
