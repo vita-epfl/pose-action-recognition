@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader, Subset
 
 from poseact.models import MultiHeadMonoLoco
 from poseact.utils.titan_metrics import per_class_precision, per_class_recall, per_class_f1
-from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person
+from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Sequence, Frame
 
 from sklearn.metrics import (
     f1_score, 
