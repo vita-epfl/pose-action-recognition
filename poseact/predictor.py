@@ -114,7 +114,7 @@ class Predictor():
                 ax.add_patch(rect)
                 for cnt, s in enumerate(action_to_show):
                     ax.text(x=x, y=y+h+cnt*20, s=s, fontsize=4, color="w", alpha=0.8,
-                        bbox=dict(facecolor='red', edgecolor='none', pad=0, alpha=0.5))
+                        bbox=dict(facecolor=box_color, edgecolor='none', pad=0, alpha=0.5))
                     
             # plt.show()
             plt.savefig(save_path, dpi=self.dpi)
@@ -172,10 +172,13 @@ class Predictor():
             
             all_clips = get_all_clip_names(pifpaf_out)
             clip_nums = [int(clip.split("_")[-1]) for clip in all_clips]
-            # clip_nums = [1, 2, 16, 26, 319, 731] # for debugging locally 
+            clip_nums = [1, 2, 16, 26, 319, 731] # for debugging locally 
             
             self.run_multiple_seq(base_dir, save_dir, clip_nums)
-            
+        elif function_name == "prepared":
+            # load the pre-extracted pickle file and run prediction frame by frame
+            pass 
+        
     
 if __name__ == "__main__":
     

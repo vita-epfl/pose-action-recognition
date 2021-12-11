@@ -19,7 +19,7 @@ from threading import Lock
 from torch.multiprocessing import Pool
 from models import MonolocoModel, TempMonolocoModel
 from utils.tcg_metrics import compute_accuracy, get_all_predictions, get_eval_metrics
-from tcg_dataset import TCGDataset, TCGSingleFrameDataset, tcg_collate_fn
+from utils.tcg_dataset import TCGDataset, TCGSingleFrameDataset, tcg_collate_fn
 
 # define device 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

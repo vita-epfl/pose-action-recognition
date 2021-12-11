@@ -1,5 +1,6 @@
-codes/data
-codes/models/trained/*
+poseact/data
+poseact/models/trained/*
+poseact.egg-info/
 out/
 open_repos/
 downloads/

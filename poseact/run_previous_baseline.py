@@ -1,4 +1,9 @@
-""" run the previously trained baseline on the merged dataset 
+""" 
+    we first trained the model on all the categories of actions in TITAN, but the dataset itself 
+    contains too many "none of the above", which we think is not a helpful annotation, and induces 
+    too much negative samples. Therefore we picked out several learnable classes out of the original
+    action hierarchy. Nevertheless, we want to see how the previously trained model behaves on the 
+    picked classes. 
 """
 import numpy as np
 import argparse
@@ -7,7 +12,7 @@ from torch.utils.data import DataLoader, Subset
 
 from models import MultiHeadMonoLoco
 from utils.titan_metrics import per_class_precision, per_class_recall, per_class_f1
-from titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
+from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person
 
 from sklearn.metrics import (
     f1_score, 

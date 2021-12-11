@@ -18,10 +18,10 @@ from torch.utils import model_zoo
 from torch.utils.data import DataLoader, Subset
 torch.autograd.set_detect_anomaly(True)
 
-from models import MultiHeadMonoLoco, multihead_resnet
+from poseact.models import MultiHeadMonoLoco, multihead_resnet
 from utils.titan_metrics import compute_accuracy, get_all_predictions, get_eval_metrics, per_class_precision, per_class_recall, per_class_f1
 from utils.losses import MultiHeadClfLoss
-from titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
+from utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
 from sklearn.metrics import f1_score, jaccard_score, confusion_matrix, accuracy_score
 
 # define device 
@@ -100,8 +100,8 @@ if __name__ == "__main__":
     
     # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--use_img"]
     # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--relative_kp", "--normalize", "--rm_center"]
-    # ["--base_dir", "codes", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
-    args = parser.parse_args()
+    # 
+    args = parser.parse_args(["--base_dir", "codes", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Relative_KP_803217.pth"])
     args = manual_add_arguments(args)
     
     # prepare train, validation and test splits, as well as the dataloaders 

@@ -13,9 +13,7 @@ import torch.nn.functional as F
 from PIL import Image
 from typing import List, Set, Dict, Tuple, Optional
 from torch.utils.data import Dataset, DataLoader, Subset
-from models import MultiHeadMonoLoco, MonolocoModel
-from utils.iou import get_iou_matches
-from utils.losses import MultiHeadClfLoss
+from poseact.utils.iou import get_iou_matches
 from multiprocessing import Pool
 
 np.set_printoptions(precision=3, suppress=True)
@@ -152,15 +150,6 @@ class Person(object):
         else:
             return key
         
-
-def search_key(obj_dict:dict, value):
-    """ search the name of action
-    """
-    for key in obj_dict.keys():
-        if obj_dict[key] == value:
-            return key
-    raise ValueError("Unrecognized dict value")
-
 class Vehicle(object):
     
     def __init__(self, pred, gt_anno) -> None:
@@ -179,7 +168,6 @@ class Vehicle(object):
         self.atomic = None
         self.simple_context = None
         self.transporting = None
-        
         
 class Frame(object):
     """ a frame contains multiple persons and vehicles (possibly other objects pifpaf detects?)
@@ -214,6 +202,7 @@ class Sequence(object):
     def to_tensor(self):
         obj_ids = self.seq_obj_ids()
         pass 
+
 class TITANDataset(Dataset):
     
     def __init__(self, pifpaf_out=None, dataset_dir=None, pickle_dir=None, use_pickle=True, split="train") -> None:
@@ -618,6 +607,14 @@ class TITANSeqDataset(Dataset):
         
         pass 
 
+def search_key(obj_dict:dict, value):
+    """ search the name of action
+    """
+    for key in obj_dict.keys():
+        if obj_dict[key] == value:
+            return key
+    raise ValueError("Unrecognized dict value")
+
 def get_all_clip_names(pifpaf_out):
     all_clip_dirs = glob.glob(pifpaf_out+"*", recursive=True)
     clips = [name.replace("\\", "/").split(sep="/")[-1] for name in all_clip_dirs]
@@ -801,58 +798,20 @@ def calc_anno_distribution(args):
             print("for {} actions".format(name))
             print_dict_in_percentage(record)
 
-def test_construct_dataset(args):
-    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
-    
-    dataset = TITANDataset(pifpaf_out, dataset_dir, split="train")
-    construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=True)
-    dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True, split="test")
-
-def test_forward(args):
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
-    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
-
-    dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True)
-    simple_dataset = TITANSimpleDataset(dataset, merge_cls=args.merge_cls)
-    dataloader = DataLoader(simple_dataset, batch_size=2, shuffle=True, collate_fn=TITANSimpleDataset.collate)
-
-    model = MultiHeadMonoLoco(input_size=17*2, output_size=simple_dataset.n_cls).to(device)
-    criterion = MultiHeadClfLoss(n_tasks=len(simple_dataset.n_cls), imbalance="focal", gamma=2, device=device)
-    for poses, labels in dataloader:
-        poses, labels = poses.to(device), labels.to(device)
-        pred = model(poses)
-        loss = criterion(pred, labels)
-        print(loss)
-
-def test_seq_dataset(args):
-    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
-    dataset = TITANDataset(dataset_dir=dataset_dir, pickle_dir=save_dir, use_pickle=True)
-    seq_dataset = TITANSeqDataset(dataset)
-    dataloader = DataLoader(seq_dataset, batch_size=2, shuffle=True, collate_fn=TITANSeqDataset.collate)
-    
-    for poses, labels in dataloader:
-        print(poses.shape, labels.shape)
-    
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser() 
     parser.add_argument("--base_dir", type=str, default="./", help="default root working directory")
     parser.add_argument("--function", type=str, default="None", help="which function to call")
     parser.add_argument("--merge-cls", action="store_true", help="remove unlearnable, merge 5 labels into one")
-    args = parser.parse_args(["--base_dir", "codes/", "--function", "forward", "--merge-cls"])
+    args = parser.parse_args() # ["--base_dir", "codes/", "--function", "forward", "--merge-cls"]
 
     function_dict = {"annotation": get_titan_att_types, 
                      "pickle": pickle_all_sequences, 
                      "dist":calc_anno_distribution,
-                     "label_stats": calc_anno_distribution, 
-                     "forward":test_forward}
+                     "label_stats": calc_anno_distribution}
 
     if args.function in function_dict.keys():
         function_dict.get(args.function)(args)
-
-    # test_construct_dataset(args)
-    # test_forward(args)
-    # test_seq_dataset(args)
 
 
