@@ -9,7 +9,7 @@ import argparse
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
 from models import MultiHeadMonoLoco
-from titan_dataset import Person, get_all_clip_names, TITANSimpleDataset
+from poseact.utils.titan_dataset import Person, get_all_clip_names, TITANSimpleDataset
 
 # print('OpenPifPaf version', openpifpaf.__version__)
 # print('PyTorch version', torch.__version__)
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type=float, default=0.3, help="confidence threshold for instances")
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
-    # ["--base_dir", "codes/", "--save_dir", "codes/out/recognition/" ,"--function", "all"]
+    # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "all"]
     args = parser.parse_args()
     # print(args)
     

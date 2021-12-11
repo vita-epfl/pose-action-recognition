@@ -8,7 +8,7 @@ import numpy as np
 job_numbers = [720, 719, 699, 700, 701, 702, 703, 704, 705]
 # job_numbers = [644]
 pattern_fn = "slurm-773{}_4294967294.log".format
-file_dir = "codes/out/"
+file_dir = "poseact/out/"
 
 avg_det_list, long_edge_list = [], []
 for num in job_numbers:

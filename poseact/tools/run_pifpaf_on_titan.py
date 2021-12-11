@@ -15,7 +15,7 @@ parser.add_argument("--base_dir", type=str, default="./")
 parser.add_argument("--long_edge", type=int, default=1920)
 parser.add_argument("--n_process", type=int, default=0)
 parser.add_argument("--mode", type=str, default="single", choices=["single", "track"])
-args = parser.parse_args() # ["--base_dir", "codes", "--long_edge", "3333"]
+args = parser.parse_args() # ["--base_dir", "poseact", "--long_edge", "3333"]
 
 base_dir = args.base_dir
 output_dir = "{}/out/pifpaf_results_{}/".format(base_dir, args.long_edge)

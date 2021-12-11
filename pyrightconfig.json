@@ -4,4 +4,4 @@
 // https://stackoverflow.com/questions/67870439/vscode-autocomplete-not-working-after-using-sshfs-to-mount-a-directory-inside-th
 
 
-{"exclude": ["./codes/data", "./codes/out"]} 
+{"exclude": ["./poseact/data", "./poseact/out"]} 

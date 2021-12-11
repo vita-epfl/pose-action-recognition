@@ -248,7 +248,7 @@ def tcg_collate_fn(list_of_seqs, padding_mode="replicate", pad_value=0):
     return padded_pose, padded_label
 
 def test_init_and_get_item():
-    datapath, label_type = "codes/data", "major"
+    datapath, label_type = "poseact/data", "major"
     trainset = TCGDataset(datapath, label_type, eval_type="xs", eval_id=1, training=True)
     one_seq, seq_label = trainset[13]
     trainset_frame = TCGSingleFrameDataset(trainset)
@@ -274,7 +274,7 @@ def test_pad_seqs():
 
 
 def test_seq_forward():
-    datapath, label_type = "codes/data", "major"
+    datapath, label_type = "poseact/data", "major"
     trainset = TCGDataset(datapath, label_type, eval_type="xs", eval_id=1, training=True)
     trainloader = DataLoader(trainset, batch_size=2, shuffle=True, collate_fn=tcg_collate_fn)
     very_simple_net = torch.nn.Linear(17*3, 128)
@@ -302,7 +302,7 @@ def test_reshape_and_forward():
 
 
 def test_single_frame_set():
-    datapath, label_type = "codes/data", "major"
+    datapath, label_type = "poseact/data", "major"
     trainset = TCGDataset(datapath, label_type, eval_type="xs", eval_id=1, training=True)
     trainset = TCGSingleFrameDataset(trainset)
     trainloader = DataLoader(trainset, batch_size=128, shuffle=True)
@@ -314,7 +314,7 @@ def test_single_frame_set():
 
 
 def test_save_log():
-    filename = 'codes/data/results/TCGSingleFrame_2021-10-13_20.16.55.txt'
+    filename = 'poseact/data/results/TCGSingleFrame_2021-10-13_20.16.55.txt'
     with open(filename, "w") as f:
         for epoch, (loss, acc) in enumerate(zip([0.3, 0.5, 0.7, 0.9], [0.3, 0.5, 0.7, 0.9])):
             f.write("Epoch {} Avg Loss {:.4f} Test Acc {:.4f}\n".format(epoch, loss, acc))
@@ -337,7 +337,7 @@ def test_compute_accuracy():
     from utils import compute_accuracy
     
     model = MonolocoModel(51, 4, 128, 0.2, 3)
-    datapath, label_type = "codes/data", "major"
+    datapath, label_type = "poseact/data", "major"
     tcg_testset = TCGDataset(datapath, label_type, eval_type="xs", eval_id=1, training=True)
     
     single_testset = TCGSingleFrameDataset(tcg_testset)

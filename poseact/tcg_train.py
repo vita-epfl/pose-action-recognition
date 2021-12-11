@@ -30,10 +30,10 @@ torch.backends.cudnn.deterministic = True
 # set value for some arguments 
 parser = argparse.ArgumentParser() 
 # # local paths
-# parser.add_argument("--data_dir", type=str, default="codes/data/", help="dataset folder, should end with /")
-# parser.add_argument("--fig_dir", type=str, default="codes/figs/", help="path to save figures, should end with /")
-# parser.add_argument("--weight_dir", type=str, default="codes/models/trained/", help="path to save trained models, end with /")
-# parser.add_argument("--result_dir", type=str, default="codes/out/results/", help="training logs dir, end with /")
+# parser.add_argument("--data_dir", type=str, default="poseact/data/", help="dataset folder, should end with /")
+# parser.add_argument("--fig_dir", type=str, default="poseact/figs/", help="path to save figures, should end with /")
+# parser.add_argument("--weight_dir", type=str, default="poseact/models/trained/", help="path to save trained models, end with /")
+# parser.add_argument("--result_dir", type=str, default="poseact/out/results/", help="training logs dir, end with /")
 
 # remote paths 
 parser.add_argument("--data_dir", type=str, default="./data/tcg_dataset/", help="dataset folder, should end with /")

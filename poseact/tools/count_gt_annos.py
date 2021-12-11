@@ -26,7 +26,7 @@ def print_dict_in_percentage(dict_record:Dict[str, int]):
         print("\'{}\':{:.2f}%".format(simplify_key(key), value/total_count*100))
     print()
     
-base_dir = "codes/"
+base_dir = "poseact/"
 pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
 dataset_dir = "{}/data/TITAN/".format(base_dir)
 save_dir = "{}/out/".format(base_dir)
