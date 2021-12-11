@@ -100,8 +100,8 @@ if __name__ == "__main__":
     
     # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--use_img"]
     # ["--debug","--base_dir", "codes", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--relative_kp", "--normalize", "--rm_center"]
-    # 
-    args = parser.parse_args(["--base_dir", "codes", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Relative_KP_803217.pth"])
+    # ["--base_dir", "codes", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Relative_KP_803217.pth"]
+    args = parser.parse_args()
     args = manual_add_arguments(args)
     
     # prepare train, validation and test splits, as well as the dataloaders 
