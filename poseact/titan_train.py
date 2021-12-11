@@ -19,9 +19,9 @@ from torch.utils.data import DataLoader, Subset
 torch.autograd.set_detect_anomaly(True)
 
 from poseact.models import MultiHeadMonoLoco, multihead_resnet
-from utils.titan_metrics import compute_accuracy, get_all_predictions, get_eval_metrics, per_class_precision, per_class_recall, per_class_f1
-from utils.losses import MultiHeadClfLoss
-from utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
+from poseact.utils.titan_metrics import compute_accuracy, get_all_predictions, get_eval_metrics, per_class_precision, per_class_recall, per_class_f1
+from poseact.utils.losses import MultiHeadClfLoss
+from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
 from sklearn.metrics import f1_score, jaccard_score, confusion_matrix, accuracy_score
 
 # define device 
