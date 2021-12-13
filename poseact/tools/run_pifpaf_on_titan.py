@@ -61,7 +61,7 @@ def track_one_seq(seq_idx):
     print("Process {} is running pifpaf on {}".format(pid, clip))
     
     original_images = glob.glob("{}/data/TITAN/images_anonymized/{}/images/*.png".format(base_dir, clip), recursive=True)
-    tmp_folder = "{}/data/scratch/{}".format(base_dir, clip)
+    tmp_folder = "{}/scratch/TITAN/{}".format(base_dir, clip)
     if not os.path.exists(tmp_folder):
         os.mkdir(tmp_folder)
     for img_path in original_images:
