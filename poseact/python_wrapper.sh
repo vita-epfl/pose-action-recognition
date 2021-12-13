@@ -3,7 +3,7 @@
 #SBATCH --account=vita
 #SBATCH --nodes 1
 #SBATCH --ntasks-per-node=1
-#SBATCH --ncpus-per-task=10
+#SBATCH --cpus-per-task=10
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --qos=gpu
