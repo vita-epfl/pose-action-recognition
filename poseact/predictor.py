@@ -8,10 +8,14 @@ import argparse
 
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
+
+from multiprocessing import Pool 
+
 from models import MultiHeadMonoLoco
 from poseact.titan_train import manual_add_arguments
 from poseact.utils import setup_multiprocessing, make_save_dir
 from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Sequence, Frame, get_all_clip_names
+
 
 # print('OpenPifPaf version', openpifpaf.__version__)
 # print('PyTorch version', torch.__version__)
@@ -209,11 +213,9 @@ class Predictor():
             self.run_multiple_seq(base_dir, save_dir, clip_nums)
             
         elif function_name == "titanseqs":
-            # load the pre-extracted pickle file and run prediction frame by frame
-            args = manual_add_arguments(args)
-            all_clips = get_all_clip_names(args.pifpaf_out)
-            dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "all")
-            for seq in dataset.seqs:
+            
+            def predict_one_sequence(idx):
+                seq = dataset.seq[idx]
                 save_dir = make_save_dir(args.save_dir, seq.seq_name)
                 for frame in seq.frames:
                     pose_array, box_array, label_array = frame.collect_objects(self.merge_cls)
@@ -227,6 +229,33 @@ class Predictor():
                     img, img_path = frame.read_img(args.base_dir)
                     save_path = self.get_img_save_path(img_path, save_dir)
                     self.draw_and_save(img, box_array, actions, labels, save_path)
+                    
+            # load the pre-extracted pickle file and run prediction frame by frame
+            args = manual_add_arguments(args)
+            all_clips = get_all_clip_names(args.pifpaf_out)
+            dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "all")
+            if args.n_process > 2:
+                setup_multiprocessing()
+                with Pool(processes=args.n_process) as p:
+                    p.map(predict_one_sequence, range(len(dataset.seqs)))
+            else:
+                for idx in range(len(dataset.seqs)):
+                    predict_one_sequence(idx)
+                    
+            # for seq in dataset.seqs:
+            #     save_dir = make_save_dir(args.save_dir, seq.seq_name)
+            #     for frame in seq.frames:
+            #         pose_array, box_array, label_array = frame.collect_objects(self.merge_cls)
+            #         if pose_array.size == 0: # skip if pifpaf doesn't detect anybody 
+            #             actions, labels = [], []
+            #         else:
+            #             actions = self.predict_action(pifpaf_pred=pose_array, json=False)
+            #             actions = [Person.pred_list_to_str(action) for action in actions]
+            #             labels = [Person.pred_list_to_str(label) for label in label_array]
+                        
+            #         img, img_path = frame.read_img(args.base_dir)
+            #         save_path = self.get_img_save_path(img_path, save_dir)
+            #         self.draw_and_save(img, box_array, actions, labels, save_path)
 
 
 if __name__ == "__main__":

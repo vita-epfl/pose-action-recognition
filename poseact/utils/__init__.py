@@ -9,6 +9,7 @@ def setup_multiprocessing():
     if sys.platform.startswith("linux"):
         try:
             libgcc_s = ctypes.CDLL("/usr/lib64/libgcc_s.so.1")
+            print("loaded /usr/lib64/libgcc_s.so.1")
         except:
             pass 
 
