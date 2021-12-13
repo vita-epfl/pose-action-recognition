@@ -56,9 +56,11 @@ def process_one_seq(seq_idx):
         print("Failed to run on {}".format(clip))
 
 def track_one_seq(seq_idx):
+    
     clip = clips[seq_idx]
     pid = os.getpid()
     print("Process {} is running pifpaf on {}".format(pid, clip))
+    sys.stdout.flush()
     
     original_images = glob.glob("{}/data/TITAN/images_anonymized/{}/images/*.png".format(base_dir, clip), recursive=True)
     tmp_folder = "{}/scratch/TITAN/{}".format(base_dir, clip)
@@ -77,7 +79,7 @@ def track_one_seq(seq_idx):
                "--long-edge={}".format(args.long_edge),
                "--checkpoint=tshufflenetv2k16",
                "--decoder=trackingpose:0",
-               "--source", "{}/000001.png".format(tmp_folder, clip), 
+               "--source", "{}/%06d.png".format(tmp_folder, clip), 
                "--force-complete-pose",
                "--json-output"]
     shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
@@ -86,7 +88,8 @@ def track_one_seq(seq_idx):
         print("Completed pose tracking on {}".format(clip))
     else:
         print("Failed to run on {}".format(clip))
-        
+    sys.stdout.flush()
+    
     pifpaf_out_file = "{}/000001.png.openpifpaf.json".format(tmp_folder)
     json_save_dir = "{}/TITAN_{}_track.json".format(output_dir, clip)
     shutil.copy(pifpaf_out_file, json_save_dir)
