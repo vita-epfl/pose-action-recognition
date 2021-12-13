@@ -1,4 +1,5 @@
 import os
+import sys 
 import numpy as np
 import PIL
 import glob
@@ -9,8 +10,9 @@ import argparse
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
 
-from multiprocessing import Pool 
-
+import multiprocessing as mp 
+from itertools import product 
+from multiprocessing import Pool
 from models import MultiHeadMonoLoco
 from poseact.titan_train import manual_add_arguments
 from poseact.utils import setup_multiprocessing, make_save_dir
@@ -186,7 +188,28 @@ class Predictor():
             seq_folder = "{}/data/TITAN/images_anonymized/clip_{}/images/".format(base_dir, seq)
             save_folder = "{}/clip_{}/".format(save_dir, seq)
             self.run_seq(seq_folder, save_folder)
-    
+            
+    def prepare_dataset(self, args):
+        self.all_clips = get_all_clip_names(args.pifpaf_out)
+        self.dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "all")
+        
+    def predict_one_sequence(self, idx):
+        sys.stdout.flush()
+        seq = self.dataset.seqs[idx]
+        save_dir = make_save_dir(args.save_dir, seq.seq_name)
+        for frame in seq.frames:
+            pose_array, box_array, label_array = frame.collect_objects(self.merge_cls)
+            if pose_array.size == 0: # skip if pifpaf doesn't detect anybody 
+                actions, labels = [], []
+            else:
+                actions = self.predict_action(pifpaf_pred=pose_array, json=False)
+                actions = [Person.pred_list_to_str(action) for action in actions]
+                labels = [Person.pred_list_to_str(label) for label in label_array]
+                
+            img, img_path = frame.read_img(args.base_dir)
+            save_path = self.get_img_save_path(img_path, save_dir)
+            self.draw_and_save(img, box_array, actions, labels, save_path)
+            
     def run(self, args):
         
         function_name = args.function
@@ -212,74 +235,45 @@ class Predictor():
             clip_nums = [1, 2, 16, 26, 319, 731] # for debugging locally 
             self.run_multiple_seq(base_dir, save_dir, clip_nums)
             
-        elif function_name == "titanseqs":
-            
-            def predict_one_sequence(idx):
-                seq = dataset.seq[idx]
-                save_dir = make_save_dir(args.save_dir, seq.seq_name)
-                for frame in seq.frames:
-                    pose_array, box_array, label_array = frame.collect_objects(self.merge_cls)
-                    if pose_array.size == 0: # skip if pifpaf doesn't detect anybody 
-                        actions, labels = [], []
-                    else:
-                        actions = self.predict_action(pifpaf_pred=pose_array, json=False)
-                        actions = [Person.pred_list_to_str(action) for action in actions]
-                        labels = [Person.pred_list_to_str(label) for label in label_array]
-                        
-                    img, img_path = frame.read_img(args.base_dir)
-                    save_path = self.get_img_save_path(img_path, save_dir)
-                    self.draw_and_save(img, box_array, actions, labels, save_path)
-                    
+        elif function_name == "titanseqs": 
             # load the pre-extracted pickle file and run prediction frame by frame
-            args = manual_add_arguments(args)
-            all_clips = get_all_clip_names(args.pifpaf_out)
-            dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "all")
-            if args.n_process > 2:
-                setup_multiprocessing()
-                with Pool(processes=args.n_process) as p:
-                    p.map(predict_one_sequence, range(len(dataset.seqs)))
-            else:
-                for idx in range(len(dataset.seqs)):
-                    predict_one_sequence(idx)
-                    
-            # for seq in dataset.seqs:
-            #     save_dir = make_save_dir(args.save_dir, seq.seq_name)
-            #     for frame in seq.frames:
-            #         pose_array, box_array, label_array = frame.collect_objects(self.merge_cls)
-            #         if pose_array.size == 0: # skip if pifpaf doesn't detect anybody 
-            #             actions, labels = [], []
-            #         else:
-            #             actions = self.predict_action(pifpaf_pred=pose_array, json=False)
-            #             actions = [Person.pred_list_to_str(action) for action in actions]
-            #             labels = [Person.pred_list_to_str(label) for label in label_array]
-                        
-            #         img, img_path = frame.read_img(args.base_dir)
-            #         save_path = self.get_img_save_path(img_path, save_dir)
-            #         self.draw_and_save(img, box_array, actions, labels, save_path)
+            self.prepare_dataset(args)
+            for idx in range(len(self.dataset.seqs)):
+                self.predict_one_sequence(idx)
 
+def mp_wrapper(input_args):
+    args, seq_idx = input_args
+    predictor = Predictor(args)
+    predictor.prepare_dataset(args)
+    predictor.predict_one_sequence(seq_idx)
 
 if __name__ == "__main__":
-    
-    setup_multiprocessing()
     
     parser = argparse.ArgumentParser() 
     parser.add_argument("--function", type=str, default="image", help="which function to call")
     parser.add_argument("--image_path", type=str, default=None, help="path to an image")
     parser.add_argument("--base_dir", type=str, default="./", help="default root working directory")
     parser.add_argument("--save_dir", type=str, default="./out/recognition/", help="to save annotated pictures")
-    parser.add_argument("--ckpt", type=str, default="TITAN_Relative_KP_803217.pth", help="default checkpoint file name")
+    parser.add_argument("--ckpt", type=str, default="TITAN_Relative_KP803217.pth", help="default checkpoint file name")
     parser.add_argument("--no_relative_kp", action="store_true",help="use absolute key point corrdinates")
     parser.add_argument("--no_merge_cls", action="store_true",  help="keep the original action hierarchy in titan")
     parser.add_argument("--n_process", type=int, default=0, help="number of process for multiprocessing, or 0 to run in serial")
     parser.add_argument("--threshold", type=float, default=0.3, help="confidence threshold for instances")
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
-    # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "all"]
-    args = parser.parse_args()
+    # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titanseqs"]
+    args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titanseqs", "--n_process", "4"])
     # print(args)
-    
+    args = manual_add_arguments(args)
     configure_pifpaf()
-    predictor = Predictor(args)
-    predictor.run(args)
-
+    
+    if args.n_process > 2:
+        setup_multiprocessing()
+        seq_idxes = range(len(get_all_clip_names(pifpaf_out=args.pifpaf_out)))
+        input_args = list(product([args], seq_idxes))
+        with Pool(processes=args.n_process) as p:
+            p.map(mp_wrapper, input_args)
+    else:
+        predictor = Predictor(args)
+        predictor.run(args)
 
