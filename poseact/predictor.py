@@ -6,6 +6,7 @@ import glob
 import torch
 import openpifpaf
 import argparse
+import subprocess 
 
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
@@ -115,7 +116,7 @@ class Predictor():
         
         self.draw_and_save(im, boxes, actions, None, save_path)
         
-    def draw_and_save(self, img, boxes, actions, labels=None, save_path=None):
+    def draw_and_save(self, img, boxes, actions, labels=None, save_path=None, verbose=False):
         """ draw actions, bounding boxes on an image and save to save_path
 
         Args:
@@ -153,9 +154,11 @@ class Predictor():
                     
             if save_path is not None:
                 plt.savefig(save_path, dpi=self.dpi)
-                print("file saved to {}".format(save_path))
+                if verbose:
+                    print("file saved to {}".format(save_path))
             else:
-                print("save path doesn't exit, don't save image") 
+                if verbose:
+                    print("save path doesn't exit, don't save image") 
                 
     def get_models(self, ckpt_dir=None, json=True):
         model = MultiHeadMonoLoco(36, [5], 128, 0.2, 3).to(device)
@@ -212,6 +215,17 @@ class Predictor():
             save_path = self.get_img_save_path(img_path, save_dir)
             self.draw_and_save(img, box_array, actions, labels, save_path)
             
+    def process_one_seq(input_args):
+        """ call a sub process to run a single sequence 
+        """
+        args, seq_idx = input_args
+        command = ["python", "predictor.py",
+                "--function", "titan_single",
+                "--seq_idx", "{}".format(seq_idx),
+                "--save_dir", "{}".format(args.save_dir)]
+        shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
+        process_result = subprocess.run(shell_command, shell=True, stdout=subprocess.DEVNULL)
+        
     def run(self, args):
         
         function_name = args.function
@@ -234,26 +248,35 @@ class Predictor():
             
             all_clips = get_all_clip_names(pifpaf_out)
             clip_nums = [int(clip.split("_")[-1]) for clip in all_clips]
-            clip_nums = [1, 2, 16, 26, 319, 731] # for debugging locally 
+            # clip_nums = [1, 2, 16, 26, 319, 731] # for debugging locally 
             self.run_multiple_seq(base_dir, save_dir, clip_nums)
             
         elif function_name == "titanseqs": 
             # load the pre-extracted pickle file and run prediction frame by frame
+            if args.n_process >= 2:
+                all_seq_idx = range(len(get_all_clip_names(pifpaf_out=args.pifpaf_out)))
+                input_args = list(product([args], all_seq_idx))
+                with Pool(processes=args.n_process) as p:
+                    p.map(self.process_one_seq, input_args)
+            else:
+                self.prepare_dataset(args)
+                for idx in range(len(self.dataset.seqs)):
+                    self.predict_one_sequence(idx)
+                  
+        elif function_name == "titan_single":
+            seq_idx = args.seq_idx
+            pid = os.getpid()
+            print("Process {} is running predictions on the {}th sequence".format(pid, seq_idx))
+            sys.stdout.flush()
             self.prepare_dataset(args)
-            for idx in range(len(self.dataset.seqs)):
-                self.predict_one_sequence(idx)
-
-def mp_wrapper(input_args):
-    configure_pifpaf()
-    args, seq_idx = input_args
-    predictor = Predictor(args)
-    predictor.prepare_dataset(args)
-    pid = os.getpid()
-    print("Process {} is running predictions on the {}th sequence".format(pid, seq_idx))
-    sys.stdout.flush()
-    predictor.predict_one_sequence(seq_idx)
+            self.predict_one_sequence(seq_idx)
+            print("Process {} has finished predictions on the {}th sequence".format(pid, seq_idx))
+            sys.stdout.flush()
+            
 
 if __name__ == "__main__":
+    
+    setup_multiprocessing()
     
     parser = argparse.ArgumentParser() 
     parser.add_argument("--function", type=str, default="image", help="which function to call")
@@ -264,6 +287,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_relative_kp", action="store_true",help="use absolute key point corrdinates")
     parser.add_argument("--no_merge_cls", action="store_true",  help="keep the original action hierarchy in titan")
     parser.add_argument("--n_process", type=int, default=0, help="number of process for multiprocessing, or 0 to run in serial")
+    parser.add_argument("--seq_idx", type=int, default=0, help="index of sequence")
     parser.add_argument("--threshold", type=float, default=0.3, help="confidence threshold for instances")
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
@@ -271,15 +295,7 @@ if __name__ == "__main__":
     args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titanseqs", "--n_process", "2"])
     # print(args)
     args = manual_add_arguments(args)
-    
-    if args.n_process >= 2:
-        setup_multiprocessing()
-        seq_idxes = range(len(get_all_clip_names(pifpaf_out=args.pifpaf_out)))
-        input_args = list(product([args], seq_idxes))
-        with Pool(processes=args.n_process) as p:
-            p.map(mp_wrapper, input_args)
-    else:
-        configure_pifpaf()
-        predictor = Predictor(args)
-        predictor.run(args)
+    predictor = Predictor(args)
+    predictor.run(args)
+
 
