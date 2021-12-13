@@ -1,4 +1,5 @@
 poseact/data
+poseact/scratch
 poseact/models/trained/*
 poseact.egg-info/
 out/
