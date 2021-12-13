@@ -190,13 +190,15 @@ class Predictor():
             self.run_seq(seq_folder, save_folder)
             
     def prepare_dataset(self, args):
+        self.save_dir = args.save_dir
+        self.base_dir = args.base_dir
         self.all_clips = get_all_clip_names(args.pifpaf_out)
         self.dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "all")
         
     def predict_one_sequence(self, idx):
         sys.stdout.flush()
         seq = self.dataset.seqs[idx]
-        save_dir = make_save_dir(args.save_dir, seq.seq_name)
+        save_dir = make_save_dir(self.save_dir, seq.seq_name)
         for frame in seq.frames:
             pose_array, box_array, label_array = frame.collect_objects(self.merge_cls)
             if pose_array.size == 0: # skip if pifpaf doesn't detect anybody 
@@ -206,7 +208,7 @@ class Predictor():
                 actions = [Person.pred_list_to_str(action) for action in actions]
                 labels = [Person.pred_list_to_str(label) for label in label_array]
                 
-            img, img_path = frame.read_img(args.base_dir)
+            img, img_path = frame.read_img(self.base_dir)
             save_path = self.get_img_save_path(img_path, save_dir)
             self.draw_and_save(img, box_array, actions, labels, save_path)
             
@@ -242,9 +244,13 @@ class Predictor():
                 self.predict_one_sequence(idx)
 
 def mp_wrapper(input_args):
+    configure_pifpaf()
     args, seq_idx = input_args
     predictor = Predictor(args)
     predictor.prepare_dataset(args)
+    pid = os.getpid()
+    print("Process {} is running predictions on the {}th sequence".format(pid, seq_idx))
+    sys.stdout.flush()
     predictor.predict_one_sequence(seq_idx)
 
 if __name__ == "__main__":
@@ -261,19 +267,19 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type=float, default=0.3, help="confidence threshold for instances")
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
-    # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titanseqs"]
-    args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titanseqs", "--n_process", "4"])
+    # 
+    args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titanseqs", "--n_process", "2"])
     # print(args)
     args = manual_add_arguments(args)
-    configure_pifpaf()
     
-    if args.n_process > 2:
+    if args.n_process >= 2:
         setup_multiprocessing()
         seq_idxes = range(len(get_all_clip_names(pifpaf_out=args.pifpaf_out)))
         input_args = list(product([args], seq_idxes))
         with Pool(processes=args.n_process) as p:
             p.map(mp_wrapper, input_args)
     else:
+        configure_pifpaf()
         predictor = Predictor(args)
         predictor.run(args)
 
