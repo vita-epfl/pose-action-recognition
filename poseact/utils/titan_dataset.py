@@ -20,8 +20,9 @@ np.set_printoptions(precision=3, suppress=True)
 
 class Person(object):
     
+    # five categories of actions in TITAN dataset 
     action_category = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
-    # 4, 7, 9, 13, 4
+
     # obtained with get_titan_att_types
     communicative_dict = {'looking into phone': 0,
                           'talking in group': 1,
@@ -60,7 +61,9 @@ class Person(object):
                          'pulling': 1,
                          'pushing': 2,
                          'none of the above': 3}
-        
+    
+    # we also created a simpler set of actions with the actions that we think is learnable
+    # and we use this set of actions to replace the original hierarchical labels if args.merge_cls is True
     valid_action_dict = {"walking":0, "standing":1, "sitting":2, "bending":3, "biking":4, "motorcycling":4}
     
     def __init__(self, pred, gt_anno) -> None:
@@ -106,15 +109,46 @@ class Person(object):
         action_str = [] 
         if len(list_of_action) == 1:
             mappings = [cls.valid_action_dict]
-        else:
-            mappings = [cls.communicative_dict, cls.complex_context_dict, cls.atomic_dict, 
-                    cls.simple_context_dict, cls.transporting_dict]
+        elif (list_of_action) == 5:
+            mappings = [cls.communicative_dict, 
+                        cls.complex_context_dict, 
+                        cls.atomic_dict, 
+                        cls.simple_context_dict, 
+                        cls.transporting_dict]
         for action, mapping in zip(list_of_action, mappings):
             for key, value in mapping.items():
                 if action == value:
                     action_str.append(cls.simplify_key(key))
                     break # find the first and then do next 
         return action_str
+    
+    def action_hierarchy(self):
+        return [self.communicative, 
+                self.complex_context, 
+                self.atomic, 
+                self.simple_context, 
+                self.transporting]
+    
+    def merge_labels(self):
+        
+        atomic_action = self.search_key("atomic")
+        simple_action = self.search_key("simple_context")
+        pose = self.key_points
+        
+        # if the person is biking (or motocycling), then simple context action 
+        # will override atomic actions
+        if simple_action in self.valid_action_dict.keys():
+            valid = True
+            label = self.valid_action_dict.get(simple_action)
+        # record the person's atomic action if it's learnable 
+        elif atomic_action in self.valid_action_dict.keys():
+            valid = True
+            label = self.valid_action_dict.get(atomic_action)
+        else:
+            valid = False
+            label = None
+        
+        return valid, pose, [label]
     
     def search_key(self, category):
         """ search the name of action
@@ -180,8 +214,31 @@ class Frame(object):
         self.persons: List[Person] = []
         self.vehicles:List[Vehicle] = []
         
-    def collect_objects(self):
-        pass 
+    def collect_objects(self, merge_label=True):
+        
+        all_poses, pifpaf_box, all_labels = [], [], []
+        for person in self.persons:
+            if merge_label:
+                valid, pose, label = person.merge_labels()
+                if not valid:
+                    continue
+            else:
+                pose = person.key_points
+                label = person.action_hierarchy()
+            pifpaf_box.append(person.pred_box)
+            all_poses.append(pose)
+            all_labels.append(label)
+            
+        box_array = np.array(pifpaf_box)
+        pose_array = np.array(all_poses)
+        label_array = np.array(all_labels)
+        
+        return pose_array, box_array, label_array
+    
+    def read_img(self, base_dir):
+        img_path = "{}/data/TITAN/images_anonymized/{}/images/{}".format(base_dir, self.seq_name, self.frame_name)
+        pil_img = Image.open(img_path).convert('RGB')
+        return pil_img, img_path
     
     def unique_obj(self):
         return set([person.object_track_id for person in self.persons])
@@ -234,17 +291,8 @@ class TITANDataset(Dataset):
         
         if split == "all": # keep all sequences
             return 
-        
-        if len(self.seqs) > 0: # get one split from it
-            name_mapping = {"train": "train_set", "val": "val_set", "test":"test_set"}
-            split_name = name_mapping.get(self.split, "train_set")
-            print("loading the {} of TITAN".format(split_name))
-            split_file = "{}/splits/{}.txt".format(dataset_dir, split_name)
-            with open(split_file, "r") as f:
-                valid_seqs = f.readlines()
-            valid_seqs = [name.rstrip() for name in valid_seqs]
-            valid_seqs = sorted(valid_seqs, key=lambda item: int(item.split(sep="_")[-1]))
-            self.seqs = [seq for seq in self.seqs if seq.seq_name in valid_seqs]
+        elif len(self.seqs) > 0: # get one split from it
+            self.seqs = self.get_data_split()
         
     def __len__(self):
         return len(self.seqs) 
@@ -257,6 +305,18 @@ class TITANDataset(Dataset):
         with open(pickle_file, "rb") as f:
             processed_seqs = pickle.load(f)
         return processed_seqs
+    
+    def get_data_split(self):
+        name_mapping = {"train": "train_set", "val": "val_set", "test":"test_set"}
+        split_name = name_mapping.get(self.split, "train_set")
+        print("loading the {} of TITAN".format(split_name))
+        split_file = "{}/splits/{}.txt".format(self.dataset_dir, split_name)
+        with open(split_file, "r") as f:
+            valid_seqs = f.readlines()
+        valid_seqs = [name.rstrip() for name in valid_seqs]
+        valid_seqs = sorted(valid_seqs, key=lambda item: int(item.split(sep="_")[-1]))
+        split_seqs = [seq for seq in self.seqs if seq.seq_name in valid_seqs]
+        return split_seqs
     
     @staticmethod
     def collate(list_of_sequences: List[Sequence]):
@@ -339,16 +399,12 @@ class TITANSimpleDataset(Dataset):
         for frame in frames:
             for person in frame.persons:
                 if self.merge_cls:
-                    valid, pose, label = self.merge_labels(person)
+                    valid, pose, label = person.merge_labels()
                     if not valid:
                         continue
                 else:
                     pose = person.key_points
-                    label = [person.communicative, 
-                            person.complex_context, 
-                            person.atomic, 
-                            person.simple_context, 
-                            person.transporting]
+                    label = person.action_hierarchy()
                 x, y, w, h = person.pred_box
                 if self.normalize:
                     all_wh.append(np.array([w,h]).reshape(-1, 2))
@@ -424,15 +480,11 @@ class TITANSimpleDataset(Dataset):
 
             # obtain labels 
             if self.merge_cls:
-                valid, _, label = self.merge_labels(person)
+                valid, _, label = person.merge_labels()
                 if not valid:
                     continue
             else:
-                label = [person.communicative, 
-                        person.complex_context, 
-                        person.atomic, 
-                        person.simple_context, 
-                        person.transporting]
+                label = person.action_hierarchy()
                 
             # use ground truth box for training, use detection box for validation and testing 
             bbox = person.gt_box if self.split=="train" else person.pred_box # both are x y w h
@@ -481,15 +533,11 @@ class TITANSimpleDataset(Dataset):
 
                 # obtain labels 
                 if self.merge_cls:
-                    valid, _, label = self.merge_labels(person)
+                    valid, _, label = person.merge_labels()
                     if not valid:
                         continue
                 else:
-                    label = [person.communicative, 
-                            person.complex_context, 
-                            person.atomic, 
-                            person.simple_context, 
-                            person.transporting]
+                    label = person.action_hierarchy()
                     
                 # use ground truth box for training, use detection box for validation and testing 
                 bbox = person.gt_box if self.split=="train" else person.pred_box # both are x y w h
@@ -553,27 +601,6 @@ class TITANSimpleDataset(Dataset):
             pose_list.append(pose)
             label_list.append(label)
         return torch.tensor(pose_list, dtype=torch.float32), torch.tensor(label_list, dtype=torch.long)
-    
-    def merge_labels(self, person:Person):
-        
-        atomic_action = person.search_key("atomic")
-        simple_action = person.search_key("simple_context")
-        pose = person.key_points
-        
-        # if the person is biking (or motocycling), then simple context action 
-        # will override atomic actions
-        if simple_action in person.valid_action_dict.keys():
-            valid = True
-            label = person.valid_action_dict.get(simple_action)
-        # record the person's atomic action if it's learnable 
-        elif atomic_action in person.valid_action_dict.keys():
-            valid = True
-            label = person.valid_action_dict.get(atomic_action)
-        else:
-            valid = False
-            label = None
-        
-        return valid, pose, [label]
     
     def data_statistics(self):
         """ count the number of instances 

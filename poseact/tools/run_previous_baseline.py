@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, Subset
 from poseact.models import MultiHeadMonoLoco
 from poseact.utils.titan_metrics import per_class_precision, per_class_recall, per_class_f1
 from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Sequence, Frame
+from poseact.titan_train import manual_add_arguments 
 
 from sklearn.metrics import (
     f1_score, 
@@ -27,18 +28,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.backends.cudnn.enabled=True
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.deterministic = True
-
-def manual_add_arguments(args):
-    """
-        manually specify the folder directory
-    """
-    args.pifpaf_out = "{}/out/pifpaf_results/".format(args.base_dir) # pifpaf output folder, end with /
-    args.dataset_dir = "{}/data/TITAN/".format(args.base_dir) # original TITAN dataset folder, should end with / 
-    args.save_dir = "{}/out/".format(args.base_dir) # saved pickle file of the poses, should end with /
-    args.fig_dir = "{}/figs/".format(args.base_dir) # path to save figures, should end with /
-    args.weight_dir = "{}/out/trained/".format(args.base_dir) # path to save trained models, end with /
-    args.result_dir = "{}/out/results/".format(args.base_dir) # training logs dir, end with /
-    return args
 
 # set value for some arguments 
 parser = argparse.ArgumentParser() 
@@ -55,9 +44,9 @@ parser.add_argument("--ckpt", default=None, type=str, help="checkpoint file name
 parser.add_argument("--merge_cls", action="store_true", help="completely remove unlearnable classes, and merge the multiple action sets into one")
 
 if __name__ == "__main__":
-    # ["--debug", "--base_dir", "poseact", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls"]
-    # ["--base_dir", "poseact", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
-    args = parser.parse_args(["--base_dir", "poseact", "--linear_size", "128", "--merge_cls", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"])
+
+    # ["--base_dir", "poseact", "--linear_size", "128", "--merge_cls", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
+    args = parser.parse_args()
     args = manual_add_arguments(args)
     
     testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "test")

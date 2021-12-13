@@ -32,14 +32,22 @@ torch.backends.cudnn.deterministic = True
 
 def manual_add_arguments(args):
     """
-        manually specify the folder directory
+        manually specify the default folders
     """
-    args.pifpaf_out = "{}/out/pifpaf_results/".format(args.base_dir) # pifpaf output folder, end with /
-    args.dataset_dir = "{}/data/TITAN/".format(args.base_dir) # original TITAN dataset folder, should end with / 
-    args.save_dir = "{}/out/".format(args.base_dir) # saved pickle file of the poses, should end with /
-    args.fig_dir = "{}/figs/".format(args.base_dir) # path to save figures, should end with /
-    args.weight_dir = "{}/out/trained/".format(args.base_dir) # path to save trained models, end with /
-    args.result_dir = "{}/out/results/".format(args.base_dir) # training logs dir, end with /
+    if getattr(args, "pifpaf_out", None) is None:
+        args.pifpaf_out = "{}/out/pifpaf_results/".format(args.base_dir) # pifpaf output folder, end with /
+    if getattr(args, "dataset_dir", None) is None:
+        args.dataset_dir = "{}/data/TITAN/".format(args.base_dir) # original TITAN dataset folder, should end with / 
+    if getattr(args, "pickle_dir", None) is None:
+        args.pickle_dir = "{}/out/".format(args.base_dir) # saved pickle file of the poses, should end with /
+    if getattr(args, "save_dir", None) is None:
+        args.save_dir = "{}/out/recognition/".format(args.base_dir) # path to qualitative results, should end with /
+    if getattr(args, "fig_dir", None) is None:
+        args.fig_dir = "{}/figs/".format(args.base_dir) # path to save figures, should end with /
+    if getattr(args, "weight_dir", None) is None:
+        args.weight_dir = "{}/out/trained/".format(args.base_dir) # path to save trained models, end with /
+    if getattr(args, "result_dir", None) is None:
+        args.result_dir = "{}/out/results/".format(args.base_dir) # training logs dir, end with /
     return args
 
 # set value for some arguments 
@@ -47,6 +55,13 @@ parser = argparse.ArgumentParser()
 
 # base path
 parser.add_argument("--base_dir", type=str, default=".", help="root directory of the codes")
+parser.add_argument("--pifpaf_out", type=str, default=None, help="pifpaf output folder")
+parser.add_argument("--dataset_dir", type=str, default=None, help="original TITAN dataset folder")
+parser.add_argument("--pickle_dir", type=str, default=None, help="saved pickle file of the poses")
+parser.add_argument("--save_dir", type=str, default=None, help="path to qualitative results")
+parser.add_argument("--fig_dir", type=str, default=None, help="path to save figures")
+parser.add_argument("--weight_dir", type=str, default=None, help="path to save trained models")
+parser.add_argument("--result_dir", type=str, default=None, help="training logs dir")
 
 # model and training related arguments 
 parser.add_argument("--batch_size", type=int, default=512, help="batch size")
@@ -105,9 +120,9 @@ if __name__ == "__main__":
     args = manual_add_arguments(args)
     
     # prepare train, validation and test splits, as well as the dataloaders 
-    trainset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "train")
-    valset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "val")
-    testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "test")
+    trainset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "train")
+    valset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "val")
+    testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "test")
     
     if args.debug:
         print("using a 2 epochs and first 2 sequences for debugging")
