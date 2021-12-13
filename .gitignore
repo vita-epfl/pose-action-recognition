@@ -5,6 +5,8 @@ poseact.egg-info/
 out/
 open_repos/
 downloads/
+References/
+Registration/
 *.ipynb_checkpoints
 *__pycache__
 *.vscode
