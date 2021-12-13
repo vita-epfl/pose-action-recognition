@@ -90,7 +90,7 @@ def track_one_seq(seq_idx):
         print("Failed to run on {}".format(clip))
     sys.stdout.flush()
     
-    pifpaf_out_file = "{}/000001.png.openpifpaf.json".format(tmp_folder)
+    pifpaf_out_file = "{}/%06d.png.openpifpaf.json".format(tmp_folder)
     json_save_dir = "{}/TITAN_{}_track.json".format(output_dir, clip)
     shutil.copy(pifpaf_out_file, json_save_dir)
     
