@@ -85,7 +85,8 @@ class Predictor():
             kp_list = TITANSimpleDataset.convert_to_relative_coord(kp_list)
             
         kp_tensor = torch.tensor(kp_list, dtype=torch.float).to(device)
-        pred = self.model(kp_tensor)
+        with torch.no_grad():
+            pred = self.model(kp_tensor)
         result_list = []
         for idx, one_pred in enumerate(pred):
             _, pred_class = torch.max(one_pred.data, -1)
@@ -181,6 +182,7 @@ class Predictor():
         else:
             print("can not load state dict, use initial model instead")
         predictor = openpifpaf.Predictor(checkpoint='shufflenetv2k30', json_data=True) # pifpaf predictor 
+        model.eval()
         return model, predictor
     
     def run_img(self, img_path, res_folder):
@@ -291,13 +293,13 @@ if __name__ == "__main__":
     parser.add_argument("--no_relative_kp", action="store_true",help="use absolute key point corrdinates")
     parser.add_argument("--no_merge_cls", action="store_true",  help="keep the original action hierarchy in titan")
     parser.add_argument("--n_process", type=int, default=0, help="number of process for multiprocessing, or 0 to run in serial")
-    parser.add_argument("--split", type=str, default="test", choices=["all", "train", "val", "test"], help="split of dataset")
+    parser.add_argument("--split", type=str, default="all", choices=["all", "train", "val", "test"], help="split of dataset")
     parser.add_argument("--seq_idx", type=int, default=0, help="index of sequence")
     parser.add_argument("--threshold", type=float, default=0.3, help="confidence threshold for instances")
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
-    # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"]
-    args = parser.parse_args()
+    # 
+    args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"])
     # print(args)
     args = manual_add_arguments(args)
     predictor = Predictor(args)

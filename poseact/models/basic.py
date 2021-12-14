@@ -67,13 +67,13 @@ class MyLinear(nn.Module):
     def forward(self, x):
 
         y = self.w1(x)
-        if x.shape[0]>1:
+        if x.shape[0]>1 or self.training==False:
             y = self.batch_norm1(y)
         y = self.relu(y)
         y = self.dropout(y)
 
         y = self.w2(y)
-        if x.shape[0]>1:
+        if x.shape[0]>1 or self.training==False:
             y = self.batch_norm2(y)
         y = self.relu(y)
         y = self.dropout(y)
@@ -178,8 +178,12 @@ class MultiHeadMonoLoco(nn.Module):
         x = x.view(N, V*C)
         # pre-processing
         y = self.w1(x)
-        if x.shape[0]>1:
-            y = self.batch_norm1(y)
+        # take care here: https://discuss.pytorch.org/t/what-does-model-eval-do-for-batchnorm-layer/7146
+        # in training, batch norm computes the mean and variance over batches, but it will throw an error
+        # when the batch size is 1, 
+        # if x.shape[0]>1 or self.training==False:
+        #     y = self.batch_norm1(y)
+        y = self.batch_norm1(y)
         y = self.relu(y)
         y = self.dropout(y)
         # linear layers
@@ -190,3 +194,9 @@ class MultiHeadMonoLoco(nn.Module):
         predictions = [head(y) for head in self.output_heads]
         
         return predictions
+    
+class MultiHeadTempMonoloco(nn.Module):
+    
+    def __init__(self, input_size, output_size=[4, 7, 9, 13, 4], linear_size=256, p_dropout=0.2, num_stage=3):
+        super().__init__()
+        
