@@ -146,12 +146,14 @@ class Predictor():
                     box_color = self.colors[action[0]]
                     action_to_show = action
                     label_to_show = labels[idx] if labels is not None else []
+                    gt_color = self.colors[label_to_show[0]]
                 else:
                     # color according to atomic action
                     box_color = self.colors[action[2]]
                     # atomic and simple context 
                     action_to_show = action[2:4]
                     label_to_show = labels[2:4] if labels is not None else []
+                    gt_color = self.colors[label_to_show[2]]
                     
                 x, y, w, h = box
                 rect = patches.Rectangle((x,y), w, h, linewidth=1, edgecolor=box_color, facecolor="none",alpha=0.85)
@@ -162,7 +164,7 @@ class Predictor():
                 
                 for new_cnt, s in enumerate(label_to_show):
                     ax.text(x=x, y=y+h+new_cnt+(cnt+1)*20, s="GT: "+s, fontsize=4, color="w", alpha=0.8,
-                        bbox=dict(facecolor=box_color, edgecolor='none', pad=0, alpha=0.5))
+                        bbox=dict(facecolor=gt_color, edgecolor='none', pad=0, alpha=0.5))
                     
             if save_path is not None:
                 plt.savefig(save_path, dpi=self.dpi)
@@ -208,7 +210,7 @@ class Predictor():
         self.save_dir = args.save_dir
         self.base_dir = args.base_dir
         self.all_clips = get_all_clip_names(args.pifpaf_out)
-        self.dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "all")
+        self.dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "test")
         
     def predict_one_sequence(self, idx):
         sys.stdout.flush()
