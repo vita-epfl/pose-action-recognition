@@ -52,6 +52,7 @@ def process_one_seq(input_args):
             "--save_dir", "{}".format(args.save_dir)]
     shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
     print("subprocess {} is running the command: {}".format(os.getpid(), shell_command))
+    sys.stdout.flush()
     process_result = subprocess.run(shell_command, shell=True, stdout=subprocess.DEVNULL)
     
 class Predictor():
@@ -268,11 +269,9 @@ class Predictor():
             seq_idx = args.seq_idx
             pid = os.getpid()
             print("Process {} is running predictions on the {}th sequence".format(pid, seq_idx))
-            sys.stdout.flush()
             self.prepare_dataset(args)
             self.predict_one_sequence(seq_idx)
             print("Process {} has finished predictions on the {}th sequence".format(pid, seq_idx))
-            sys.stdout.flush()
             
 
 if __name__ == "__main__":
