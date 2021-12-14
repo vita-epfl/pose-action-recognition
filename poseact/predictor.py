@@ -42,7 +42,18 @@ def configure_pifpaf():
     pifpaf_args.force_complete_pose = True
     decoder.configure(pifpaf_args)
 
-
+def process_one_seq(input_args):
+    """ call a sub process to run a single sequence 
+    """
+    args, seq_idx = input_args
+    command = ["python", "{}/predictor.py".format(args.base_dir),
+            "--function", "titan_single",
+            "--seq_idx", "{}".format(seq_idx),
+            "--save_dir", "{}".format(args.save_dir)]
+    shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
+    print("subprocess {} is running the command: {}".format(os.getpid(), shell_command))
+    process_result = subprocess.run(shell_command, shell=True, stdout=subprocess.DEVNULL)
+    
 class Predictor():
     
     def __init__(self, args) -> None:
@@ -214,17 +225,6 @@ class Predictor():
             img, img_path = frame.read_img(self.base_dir)
             save_path = self.get_img_save_path(img_path, save_dir)
             self.draw_and_save(img, box_array, actions, labels, save_path)
-            
-    def process_one_seq(input_args):
-        """ call a sub process to run a single sequence 
-        """
-        args, seq_idx = input_args
-        command = ["python", "predictor.py",
-                "--function", "titan_single",
-                "--seq_idx", "{}".format(seq_idx),
-                "--save_dir", "{}".format(args.save_dir)]
-        shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
-        process_result = subprocess.run(shell_command, shell=True, stdout=subprocess.DEVNULL)
         
     def run(self, args):
         
@@ -255,9 +255,10 @@ class Predictor():
             # load the pre-extracted pickle file and run prediction frame by frame
             if args.n_process >= 2:
                 all_seq_idx = range(len(get_all_clip_names(pifpaf_out=args.pifpaf_out)))
+                # all_seq_idx = [0, 1] # for debugging locally 
                 input_args = list(product([args], all_seq_idx))
                 with Pool(processes=args.n_process) as p:
-                    p.map(self.process_one_seq, input_args)
+                    p.map(process_one_seq, input_args)
             else:
                 self.prepare_dataset(args)
                 for idx in range(len(self.dataset.seqs)):
@@ -277,6 +278,7 @@ class Predictor():
 if __name__ == "__main__":
     
     setup_multiprocessing()
+    configure_pifpaf()
     
     parser = argparse.ArgumentParser() 
     parser.add_argument("--function", type=str, default="image", help="which function to call")
@@ -291,8 +293,8 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type=float, default=0.3, help="confidence threshold for instances")
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
-    # 
-    args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titanseqs", "--n_process", "2"])
+    # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"]
+    args = parser.parse_args()
     # print(args)
     args = manual_add_arguments(args)
     predictor = Predictor(args)
