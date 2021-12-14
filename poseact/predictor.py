@@ -210,7 +210,7 @@ class Predictor():
         self.save_dir = args.save_dir
         self.base_dir = args.base_dir
         self.all_clips = get_all_clip_names(args.pifpaf_out)
-        self.dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "test")
+        self.dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, args.split)
         
     def predict_one_sequence(self, idx):
         sys.stdout.flush()
@@ -257,7 +257,8 @@ class Predictor():
         elif function_name == "titanseqs": 
             # load the pre-extracted pickle file and run prediction frame by frame
             if args.n_process >= 2:
-                all_seq_idx = range(len(get_all_clip_names(pifpaf_out=args.pifpaf_out)))
+                self.prepare_dataset(args)
+                all_seq_idx = range(len(self.dataset.seqs))
                 # all_seq_idx = [0, 1] # for debugging locally 
                 input_args = list(product([args], all_seq_idx))
                 with Pool(processes=args.n_process) as p:
@@ -290,6 +291,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_relative_kp", action="store_true",help="use absolute key point corrdinates")
     parser.add_argument("--no_merge_cls", action="store_true",  help="keep the original action hierarchy in titan")
     parser.add_argument("--n_process", type=int, default=0, help="number of process for multiprocessing, or 0 to run in serial")
+    parser.add_argument("--split", type=str, default="test", choices=["all", "train", "val", "test"], help="split of dataset")
     parser.add_argument("--seq_idx", type=int, default=0, help="index of sequence")
     parser.add_argument("--threshold", type=float, default=0.3, help="confidence threshold for instances")
     parser.add_argument("--alpha", type=float, default=0.3)
