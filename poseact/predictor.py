@@ -49,7 +49,8 @@ def process_one_seq(input_args):
     command = ["python", "{}/predictor.py".format(args.base_dir),
             "--function", "titan_single",
             "--seq_idx", "{}".format(seq_idx),
-            "--save_dir", "{}".format(args.save_dir)]
+            "--save_dir", "{}".format(args.save_dir),
+            "--split", "{}".format(args.split)]
     shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
     print("subprocess {} is running the command: {}".format(os.getpid(), shell_command))
     sys.stdout.flush()
