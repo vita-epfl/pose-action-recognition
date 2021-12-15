@@ -179,11 +179,14 @@ class MultiHeadMonoLoco(nn.Module):
         # pre-processing
         y = self.w1(x)
         # take care here: https://discuss.pytorch.org/t/what-does-model-eval-do-for-batchnorm-layer/7146
-        # in training, batch norm computes the mean and variance over batches, but it will throw an error
-        # when the batch size is 1, 
-        # if x.shape[0]>1 or self.training==False:
-        #     y = self.batch_norm1(y)
-        y = self.batch_norm1(y)
+        # in training, batch norm computes the mean and variance over batches, usually the code will works
+        # just fine, but in case the dataset unfortunately have 1 sample in the last batch, you would see 
+        # an error like https://discuss.pytorch.org/t/error-expected-more-than-1-value-per-channel-when-training/26274
+        # so when the batch has only 1 sample in training, we skip the batch norm layer 
+        # but in testing, batchnorm will use the mean and variance it learned to normalize the samples,
+        # so we always need batchnorm in testing. This applies to the batchnorm in MyLinear as well 
+        if x.shape[0]>1 or self.training==False:
+            y = self.batch_norm1(y)
         y = self.relu(y)
         y = self.dropout(y)
         # linear layers
