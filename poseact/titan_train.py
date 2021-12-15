@@ -86,6 +86,7 @@ parser.add_argument("--rm_center", action="store_true", help="remove the center 
 parser.add_argument("--normalize", action="store_true", help="divide the (x, y) of a point by (w, h) of the bbox")
 parser.add_argument("--use_img", action="store_true", 
                     help="crop patches from the original image, don't use poses")
+parser.add_argument("--drop_last", action="store_false", help="drop the last batch (only use in training)")
 
 # loss related arguments 
 # parser.add_argument("--n_tasks", type=int, default=5, help="number of tasks for multi-task loss, 5 for TITAN")
@@ -143,11 +144,11 @@ if __name__ == "__main__":
                                   relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
         
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, 
-                             num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
+                             num_workers=args.workers, collate_fn=TITANSimpleDataset.collate, drop_last=args.drop_last)
     valloader = DataLoader(valset, batch_size=args.batch_size,shuffle=False,
-                           num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
+                           num_workers=args.workers, collate_fn=TITANSimpleDataset.collate, drop_last=args.drop_last)
     testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=False,
-                            num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
+                            num_workers=args.workers, collate_fn=TITANSimpleDataset.collate, drop_last=args.drop_last)
     
     input_size, output_size = trainset.n_feature, trainset.n_cls
     

@@ -67,14 +67,14 @@ class MyLinear(nn.Module):
     def forward(self, x):
 
         y = self.w1(x)
-        if x.shape[0]>1 or self.training==False:
-            y = self.batch_norm1(y)
+        # if x.shape[0]>1 or self.training==False:
+        y = self.batch_norm1(y)
         y = self.relu(y)
         y = self.dropout(y)
 
         y = self.w2(y)
-        if x.shape[0]>1 or self.training==False:
-            y = self.batch_norm2(y)
+        # if x.shape[0]>1 or self.training==False:
+        y = self.batch_norm2(y)
         y = self.relu(y)
         y = self.dropout(y)
 
@@ -185,8 +185,9 @@ class MultiHeadMonoLoco(nn.Module):
         # so when the batch has only 1 sample in training, we skip the batch norm layer 
         # but in testing, batchnorm will use the mean and variance it learned to normalize the samples,
         # so we always need batchnorm in testing. This applies to the batchnorm in MyLinear as well 
-        if x.shape[0]>1 or self.training==False:
-            y = self.batch_norm1(y)
+        # A better fix: drop the last batch in the data loader 
+        # if x.shape[0]>1 or self.training==False:
+        y = self.batch_norm1(y)
         y = self.relu(y)
         y = self.dropout(y)
         # linear layers
