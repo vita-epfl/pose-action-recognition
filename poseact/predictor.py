@@ -272,12 +272,13 @@ class Predictor():
                     self.predict_one_sequence(idx)
                   
         elif function_name == "titan_single":
-            seq_idx = args.seq_idx
-            pid = os.getpid()
-            print("Process {} is running predictions on the {}th sequence".format(pid, seq_idx))
             self.prepare_dataset(args)
+            seq_idx = args.seq_idx
+            clip_name = self.dataset.seqs[seq_idx].seq_name
+            pid = os.getpid()
+            print("Process {} is running predictions on {} of the {} split".format(pid, clip_name, self.dataset.split))
             self.predict_one_sequence(seq_idx)
-            print("Process {} has finished predictions on the {}th sequence".format(pid, seq_idx))
+            print("Process {} is running predictions on {} of the {} split".format(pid, clip_name, self.dataset.split))
             
 
 if __name__ == "__main__":
