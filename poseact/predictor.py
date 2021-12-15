@@ -298,8 +298,8 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type=float, default=0.3, help="confidence threshold for instances")
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
-    # 
-    args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"])
+    # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"]
+    args = parser.parse_args()
     # print(args)
     args = manual_add_arguments(args)
     predictor = Predictor(args)
