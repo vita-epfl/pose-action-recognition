@@ -19,30 +19,7 @@ from models import MultiHeadMonoLoco
 from poseact.titan_train import manual_add_arguments
 from poseact.utils import setup_multiprocessing, make_save_dir
 from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Sequence, Frame, get_all_clip_names
-from poseact.utils.titan_metrics import compute_accuracy, get_all_predictions, get_eval_metrics, per_class_precision, per_class_recall, per_class_f1
-
-def summarize_results(acc, f1, jac, cfx, ap):
-    print("In general, overall accuracy {:.4f} avg Jaccard {:.4f} avg F1 {:.4f}".format(
-                                np.mean(acc), np.mean(jac), np.mean(f1)))
-    if args.merge_cls:
-        action_hierarchy = ["valid_action"]
-    else:
-        action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
-
-    for idx, layer in enumerate(action_hierarchy):
-        # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
-        prec, rec, f1 = per_class_precision(cfx[idx]), per_class_recall(cfx[idx]),per_class_f1(cfx[idx])
-        print("")
-        print("For {} actions accuracy {:.4f} Jaccard score {:.4f} f1 score {:.4f} mAP {:.4f}".format(
-            layer, acc[idx], jac[idx], f1[idx], np.mean(ap[idx])))
-        print("Precision for each class: {}".format(prec))
-        print("Recall for each class: {}".format(rec))
-        print("F1 score for each class: {}".format(f1))
-        print("Average Precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
-        print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
-        print("The corresponding classes are {}".format(Person.get_attr_dict(layer)))
-        print(cfx[idx])
-        print("")
+from poseact.utils.titan_metrics import get_all_predictions, get_eval_metrics, summarize_results
 
 parser = argparse.ArgumentParser() 
 

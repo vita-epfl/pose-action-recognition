@@ -11,6 +11,7 @@ from sklearn.metrics import (
     accuracy_score,
     average_precision_score
     )
+from poseact.utils.titan_dataset import Person
 
 def compute_accuracy(model:nn.Module, testloader:DataLoader):
     device = next(model.parameters()).device
@@ -110,3 +111,26 @@ def get_eval_metrics(result_list, label_list, score_list):
         ap_list.append(ap)
     
     return  acc_list, f1_list, jac_list, cfx_list, ap_list
+
+def summarize_results(acc, f1, jac, cfx, ap, merge_cls):
+    print("In general, overall accuracy {:.4f} avg Jaccard {:.4f} avg F1 {:.4f}".format(
+                                np.mean(acc), np.mean(jac), np.mean(f1)))
+    if merge_cls:
+        action_hierarchy = ["valid_action"]
+    else:
+        action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
+
+    for idx, layer in enumerate(action_hierarchy):
+        # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
+        prec, rec, f1 = per_class_precision(cfx[idx]), per_class_recall(cfx[idx]),per_class_f1(cfx[idx])
+        print("")
+        print("For {} actions accuracy {:.4f} Jaccard score {:.4f} f1 score {:.4f} mAP {:.4f}".format(
+            layer, acc[idx], jac[idx], f1[idx], np.mean(ap[idx])))
+        print("Precision for each class: {}".format(prec))
+        print("Recall for each class: {}".format(rec))
+        print("F1 score for each class: {}".format(f1))
+        print("Average Precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
+        print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
+        print("The corresponding classes are {}".format(Person.get_attr_dict(layer)))
+        print(cfx[idx])
+        print("")
