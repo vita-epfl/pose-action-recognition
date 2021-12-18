@@ -27,19 +27,22 @@ torch.backends.cudnn.enabled=True
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.deterministic = True
 
+def manual_add_arguments(args):
+    """
+        manually specify the default folders
+    """
+    args.data_dir = "{}/data/".format(args.base_dir) 
+    args.result_dir = "{}/data/TITAN/".format(args.base_dir) 
+    args.fig_dir = "{}/figs/".format(args.base_dir)
+    args.weight_dir = "{}/out/trained/".format(args.base_dir) 
+
+    return args
+
 # set value for some arguments 
 parser = argparse.ArgumentParser() 
-# # local paths
-parser.add_argument("--data_dir", type=str, default="poseact/data/", help="dataset folder, should end with /")
-parser.add_argument("--fig_dir", type=str, default="poseact/figs/", help="path to save figures, should end with /")
-parser.add_argument("--weight_dir", type=str, default="poseact/models/trained/", help="path to save trained models, end with /")
-parser.add_argument("--result_dir", type=str, default="poseact/out/results/", help="training logs dir, end with /")
 
-# remote paths 
-# parser.add_argument("--data_dir", type=str, default="./data/tcg_dataset/", help="dataset folder, should end with /")
-# parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
-# parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models, end with /")
-# parser.add_argument("--result_dir", type=str, default="./out/results/", help="training logs dir, end with /")
+# default paths 
+parser.add_argument("--base_dir", type=str, default=".", help="root directory of the codes")
 
 parser.add_argument("--label_type", type=str, default="major", help="major for 4 classes, sub for 15 classes")
 parser.add_argument("--batch_size", type=int, default=128, help="batch size, use a small value (1) for sequence model")
@@ -171,8 +174,9 @@ if __name__ == "__main__":
     # start REAL sub process as specified here https://pytorch.org/docs/stable/notes/multiprocessing.html
     mp.set_start_method('spawn')
     
-    # args = parser.parse_args(["--model_type", "sequence", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--n_process", "3"])
-    args = parser.parse_args(["--model_type", "single", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--relative_kp", "--use_velocity"])
+    # ["--base_dir", "poseact","--model_type", "single", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--relative_kp", "--use_velocity"]
+    args = parser.parse_args()
+    args = manual_add_arguments(args)
     args.output_size = TCGDataset.get_output_size(args.label_type)
     num_splits = TCGDataset.get_num_split(args.eval_type)
     
