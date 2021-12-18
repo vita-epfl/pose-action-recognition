@@ -31,7 +31,8 @@ class TCGDataset(Dataset):
                             [["bottom", "left", "top"], ["right"]],
                             [["right", "left", "top"], ["bottom"]]]}
 
-    def __init__(self, data_path, label_type="major", eval_type=None, eval_id=None, training: bool = True):
+    def __init__(self, data_path, label_type="major", eval_type=None, eval_id=None, training:bool=True, 
+                 relative_kp=False, use_velocity=False):
         """
         a pytorch dataset class for TCG dataset https://arxiv.org/abs/2007.16072
         code adopted from https://github.com/againerju/tcg_recognition/blob/master/TCGDB.py
@@ -52,12 +53,20 @@ class TCGDataset(Dataset):
         self.labels = []
         self.view_points = []
         self.subject_idx = []
-
+        self.relative_kp = relative_kp
+        self.use_velocity = use_velocity
+        
         self.process_sequences()
         self.process_labels(label_type)
         self.enforce_eval_protocol(eval_type, eval_id, training)
         self.down_sample_seqs()
-
+        
+        if self.relative_kp:
+            self.convert_to_relative_coordinate()
+        if self.use_velocity:
+            self.add_velocity_to_kp()
+            
+        self.n_feature = np.prod(self.seqs[0].shape[1:])
         del self.raw_seq, self.raw_label
 
     def process_sequences(self):
@@ -66,6 +75,23 @@ class TCGDataset(Dataset):
         seqs = [torch.tensor(seq, dtype=torch.float32) for seq in self.raw_seq]
         self.seqs = seqs
 
+    def convert_to_relative_coordinate(self):
+        print("converting the keypoint coordinates into center+relative")
+        for idx, seq in enumerate(self.seqs):
+            center_point = seq[:, 3, :].unsqueeze(1)
+            relative = seq - center_point
+            center_and_relative = torch.cat((relative, center_point), dim=1)
+            self.seqs[idx] = center_and_relative
+    
+    def add_velocity_to_kp(self):
+        print("concatinating joint velocity with location")
+        for idx, seq in enumerate(self.seqs):
+            prev_pose = seq.clone()
+            prev_pose[1:, :, :] = seq[:-1, :, :] # shift the original sequence by 1 step 
+            velocity = seq - prev_pose # velocity will be 0 at first
+            pose_and_velo = torch.cat((seq, velocity), dim=1)
+            self.seqs[idx] = pose_and_velo
+    
     def process_labels(self, label_type="major"):
         """ turn the label into list of tensors 
             generate class label for each frame, based on the original annotation
@@ -176,7 +202,8 @@ class TCGSingleFrameDataset(Dataset):
         label_list = tcg_seq_dataset.labels
         self.frames = torch.cat(seq_list, dim=0)
         self.labels = torch.cat(label_list, dim=0).type(torch.long)
-
+        self.n_feature = tcg_seq_dataset.n_feature
+        
     def __getitem__(self, index) -> Tuple[torch.Tensor, torch.Tensor]:
         seq = self.frames[index]
         label = self.labels[index]

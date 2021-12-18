@@ -30,21 +30,20 @@ torch.backends.cudnn.deterministic = True
 # set value for some arguments 
 parser = argparse.ArgumentParser() 
 # # local paths
-# parser.add_argument("--data_dir", type=str, default="poseact/data/", help="dataset folder, should end with /")
-# parser.add_argument("--fig_dir", type=str, default="poseact/figs/", help="path to save figures, should end with /")
-# parser.add_argument("--weight_dir", type=str, default="poseact/models/trained/", help="path to save trained models, end with /")
-# parser.add_argument("--result_dir", type=str, default="poseact/out/results/", help="training logs dir, end with /")
+parser.add_argument("--data_dir", type=str, default="poseact/data/", help="dataset folder, should end with /")
+parser.add_argument("--fig_dir", type=str, default="poseact/figs/", help="path to save figures, should end with /")
+parser.add_argument("--weight_dir", type=str, default="poseact/models/trained/", help="path to save trained models, end with /")
+parser.add_argument("--result_dir", type=str, default="poseact/out/results/", help="training logs dir, end with /")
 
 # remote paths 
-parser.add_argument("--data_dir", type=str, default="./data/tcg_dataset/", help="dataset folder, should end with /")
-parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
-parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models, end with /")
-parser.add_argument("--result_dir", type=str, default="./out/results/", help="training logs dir, end with /")
+# parser.add_argument("--data_dir", type=str, default="./data/tcg_dataset/", help="dataset folder, should end with /")
+# parser.add_argument("--fig_dir", type=str, default="./figs/", help="path to save figures, should end with /")
+# parser.add_argument("--weight_dir", type=str, default="./models/trained/", help="path to save trained models, end with /")
+# parser.add_argument("--result_dir", type=str, default="./out/results/", help="training logs dir, end with /")
 
 parser.add_argument("--label_type", type=str, default="major", help="major for 4 classes, sub for 15 classes")
 parser.add_argument("--batch_size", type=int, default=128, help="batch size, use a small value (1) for sequence model")
 parser.add_argument("--num_epoch", type=int, default=50, help="number of training epochs")
-parser.add_argument("--input_size", type=int, default=51, help="input size, number of joints times feature dimension, 51 for TCG")
 parser.add_argument("--linear_size", type=int, default=256, help="size of hidden linear layer")
 parser.add_argument("--dropout", type=float, default=0.2, help="dropout rate")
 parser.add_argument("--n_stage", type=int, default=3, help="number of stages in a monoloco model")
@@ -57,6 +56,8 @@ parser.add_argument("--n_process", type=int, default=None, help="number of proce
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
 parser.add_argument("--save_res", action="store_true", help="store training log and trained network")
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
+parser.add_argument("--relative_kp", action="store_true", help="use relative coordinates")
+parser.add_argument("--use_velocity", action="store_true", help="add velocity to key points")
 
 def multiprocess_wrapper(args_and_eval_id):
     # args_and_eval_id is a tuple with elements (args, eval_id)
@@ -77,24 +78,29 @@ def train_model(args):
         print("beginning to train a {} model".format(args.model_type))
         process_lock.release()
         
-    trainset = TCGDataset(args.data_dir, args.label_type, args.eval_type, args.eval_id, training=True)
-    testset = TCGDataset(args.data_dir, args.label_type, args.eval_type, args.eval_id, training=False)
-    
+    trainset = TCGDataset(args.data_dir, args.label_type, args.eval_type, args.eval_id, training=True, 
+                          relative_kp=args.relative_kp, use_velocity=args.use_velocity)
+    testset = TCGDataset(args.data_dir, args.label_type, args.eval_type, args.eval_id, training=False, 
+                         relative_kp=args.relative_kp, use_velocity=args.use_velocity)
+    if args.debug:
+        print("using a 2 epochs and first 2 sequences for debugging")
+        args.num_epoch = 2
+        trainset.seqs = trainset.seqs[:2]
+        testset.seqs = testset.seqs[:2]
+        if args.model_type == "sequence":
+            args.batch_size = 2
+
     # choose a single frame model or a sequence version of monoloco  
     if args.model_type == "single":
         trainset, testset = TCGSingleFrameDataset(trainset), TCGSingleFrameDataset(testset)
-        if args.debug:
-            trainset, testset = Subset(trainset, indices=range(1024)), Subset(testset, indices=range(1024))
-        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True)
+        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, drop_last=True)
         testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=False)
-        model = MonolocoModel(args.input_size, args.output_size, args.linear_size, args.dropout, args.n_stage).to(device)
+        model = MonolocoModel(trainset.n_feature, args.output_size, args.linear_size, args.dropout, args.n_stage).to(device)
     elif args.model_type == "sequence":
-        if args.debug:
-            trainset, testset = Subset(trainset, indices=range(10)), Subset(testset, indices=range(2))
-        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, collate_fn=tcg_collate_fn)
+        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, collate_fn=tcg_collate_fn, drop_last=True)
         # always run one sequence for testing, so no need for padding, and no artificial data padded 
         testloader = DataLoader(testset, batch_size=1, shuffle=False, collate_fn=tcg_collate_fn)
-        model = TempMonolocoModel(args.input_size, args.output_size, args.linear_size, args.dropout, args.n_stage).to(device)
+        model = TempMonolocoModel(trainset.n_feature, args.output_size, args.linear_size, args.dropout, args.n_stage).to(device)
     
 
     criterion = nn.CrossEntropyLoss()
@@ -166,7 +172,7 @@ if __name__ == "__main__":
     mp.set_start_method('spawn')
     
     # args = parser.parse_args(["--model_type", "sequence", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--n_process", "3"])
-    args = parser.parse_args()
+    args = parser.parse_args(["--model_type", "single", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--relative_kp", "--use_velocity"])
     args.output_size = TCGDataset.get_output_size(args.label_type)
     num_splits = TCGDataset.get_num_split(args.eval_type)
     
@@ -174,6 +180,7 @@ if __name__ == "__main__":
         print("Starting to run the experiment in serial")
         combined_results = []
         for idx in range(num_splits):
+            print("This is the {} th split in the TCG dataset".format(idx))
             args.eval_id = idx
             result = train_model(args)
             combined_results.append(result)
