@@ -141,9 +141,9 @@ if __name__ == "__main__":
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, 
                              num_workers=args.workers, collate_fn=TITANSimpleDataset.collate, drop_last=args.drop_last)
     valloader = DataLoader(valset, batch_size=args.batch_size,shuffle=False,
-                           num_workers=args.workers, collate_fn=TITANSimpleDataset.collate, drop_last=args.drop_last)
+                           num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
     testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=False,
-                            num_workers=args.workers, collate_fn=TITANSimpleDataset.collate, drop_last=args.drop_last)
+                            num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
     
     input_size, output_size = trainset.n_feature, trainset.n_cls
     
