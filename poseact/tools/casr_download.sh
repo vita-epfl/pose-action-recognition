@@ -21,6 +21,7 @@ mkdir data
 unzip annotations.zip -d data
 cd data
 mkdir videos 
+cd ..
 
 echo "Downloading first dataset" 
 wget -O person01_style1.zip http://adas.cvc.uab.es/casr/download/person01_style1/?wpdmdl=21&refresh=60a3a6c7e22251621337799 
@@ -38,6 +39,8 @@ echo "Downloading seventh dataset"
 wget -O person03_style1-2.zip http://adas.cvc.uab.es/casr/download/person03_style1-2/?wpdmdl=29&refresh=60a3a7540aff91621337940 
 echo "Downloading eighth dataset" 
 wget -O person04_styles.zip http://adas.cvc.uab.es/casr/download/person04_styles/?wpdmdl=30&refresh=60a3a764ea5c81621337956 
+echo "Downloading youtube videos" 
+wget -O youtuber.zip http://datasets.cvc.uab.es/CASR/youtuber.zip
 wait
 echo "Finish downloading datasets"
 
@@ -50,6 +53,7 @@ unzip person02_style1.zip -d data/videos
 unzip person02_style2-3.zip -d data/videos 
 unzip person03_style1-2.zip -d data/videos 
 unzip person04_styles.zip -d data/videos 
+unzip youtuber.zip -d data/videos 
 echo "Done unzipping" 
 
 echo "Exctracting images" 
