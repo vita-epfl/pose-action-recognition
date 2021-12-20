@@ -14,6 +14,7 @@ from PIL import Image
 from typing import List, Set, Dict, Tuple, Optional
 from torch.utils.data import Dataset, DataLoader, Subset
 from poseact.utils.iou import get_iou_matches
+from poseact.utils.losses import IGNORE_INDEX
 from multiprocessing import Pool
 
 np.set_printoptions(precision=3, suppress=True)
@@ -240,8 +241,11 @@ class Frame(object):
         pil_img = Image.open(img_path).convert('RGB')
         return pil_img, img_path
     
-    def unique_obj(self):
-        return set([person.object_track_id for person in self.persons])
+    def unique_obj(self, method="gt"):
+        if method=="gt":
+            return set([person.object_track_id for person in self.persons])
+        elif method=="pifpaf":
+            return set([person.pifpaf_track_id for person in self.persons])
 
 class Sequence(object):
     
@@ -250,19 +254,60 @@ class Sequence(object):
         self.seq_name:str = seq_name
         self.frames:List[Frame] = []
         
-    def seq_obj_ids(self):
+    def seq_obj_ids(self, method="gt"):
         obj_ids = set()
         for frame in self.frames:
-            obj_ids.update(frame.unique_obj())
+            obj_ids.update(frame.unique_obj(method="gt"))
         return obj_ids
     
-    def to_tensor(self):
-        obj_ids = self.seq_obj_ids()
-        pass 
+    def to_tensor(self, method="gt"):
+        obj_ids = self.seq_obj_ids(method)
+        # map the object track id into N continuous number (for this sequence only)
+        index_mapping = {obj_id:idx for obj_id, idx in zip(obj_ids, range(len(obj_ids)))}
+        # a padded array of size (N, T, V, C), enough to contain all the poses for all persons in this sequence
+        padded_pose_array = np.zeros((len(obj_ids), len(self.frames), 17, 2), dtype=np.float32)
+        padded_label_array = IGNORE_INDEX*np.ones((len(obj_ids), len(self.frames)), dtype=np.int)
+        # put the poses into the padded pose array frame by frame, person by person
+        for fid, frame in enumerate(self.frames):
+            for person in frame.persons:
+                valid, pose, label = person.merge_labels()
+                if not valid:
+                    continue
+                # choose whether we use GT or pifpaf track id 
+                track_id = person.object_track_id if method=="gt" else person.pifpaf_track_id
+                position = index_mapping[track_id]
+                padded_pose_array[position, fid, :, :] = pose
+                padded_label_array[position, fid] = label[0]
+        
+        # remove heading and trailing zeros https://stackoverflow.com/questions/11188364/remove-zero-lines-2-d-numpy-array
+        poses_and_labels = []
+        for padded_pose, padded_label in zip(padded_pose_array, padded_label_array):
+            is_not_zero = np.logical_not(np.all(padded_pose==0, axis=(1,2)))
+            valid_frames = np.sum(is_not_zero) # now many none zero poses are there (non-empty)
+            cumsum = np.cumsum(is_not_zero)
+            is_leading_zeros = cumsum == 0
+            is_trailing_zeros = cumsum == valid_frames
+            last_pose = np.where(is_trailing_zeros)[0][0] # the last valid pose 
+            is_trailing_zeros[last_pose] = False
+            # remove the leading zeros and trailing zeros 
+            not_leading_or_trailing = np.logical_not(np.logical_or(is_leading_zeros, is_trailing_zeros))
+            # pad the mid zeros with previous poses before removing any zeros 
+            # (the person is out of view for some reason and appear again sometime afterwards)
+            is_zero = np.logical_not(is_not_zero)
+            is_mid_zeros = np.logical_and(is_zero, not_leading_or_trailing)
+            for mid_idx in np.where(is_mid_zeros)[0]: # find out the location of mid zeros
+                padded_pose[mid_idx] = padded_pose[max(mid_idx-1, 0)] # set it to the previous pose (or the first)
+                padded_label[mid_idx] = IGNORE_INDEX # set to default ignore index of cross entropy loss 
+            filtered_pose = torch.tensor(padded_pose[not_leading_or_trailing], dtype=torch.float32)
+            filtered_label = torch.tensor(padded_label[not_leading_or_trailing], dtype=torch.float32)
+            poses_and_labels.append((filtered_pose, filtered_label))
+
+        return poses_and_labels
+         
 
 class TITANDataset(Dataset):
     
-    def __init__(self, pifpaf_out=None, dataset_dir=None, pickle_dir=None, use_pickle=True, split="train") -> None:
+    def __init__(self, pifpaf_out=None, dataset_dir=None, pickle_dir=None, use_pickle=True, split="train", mode="single"):
         """
 
         Args:
@@ -278,6 +323,7 @@ class TITANDataset(Dataset):
         self.pickle_dir = pickle_dir
         self.use_pickle = use_pickle
         self.split = split
+        self.mode=mode
         self.seqs:List[Sequence] = []
         if pickle_dir is not None and use_pickle:
             print("loading preprocessed titan dataset from pickle file")
@@ -301,7 +347,8 @@ class TITANDataset(Dataset):
         return self.seqs[index]
     
     def load_from_pickle(self, pickle_dir):
-        pickle_file = pickle_dir + "/" + "TITAN_pifpaf.pkl"
+        file_name = "TITAN_pifpaf.pkl" if self.mode=="single" else "TITAN_pifpaf_track.pkl"
+        pickle_file = pickle_dir + "/" + file_name
         with open(pickle_file, "rb") as f:
             processed_seqs = pickle.load(f)
         return processed_seqs
@@ -417,7 +464,7 @@ class TITANSimpleDataset(Dataset):
         
         if self.relative_kp:
             print("Converting the original coordinates to center+relative")
-            pose_array = self.convert_to_relative_coord(pose_array)
+            pose_array = self.to_relative_coord(pose_array)
             if self.rm_center:
                 pose_array = pose_array[:,:17,:]
             if self.normalize:
@@ -427,7 +474,7 @@ class TITANSimpleDataset(Dataset):
         return pose_array, label_array
     
     @staticmethod
-    def convert_to_relative_coord(all_poses):
+    def to_relative_coord(all_poses):
         """convert the key points from absolute coordinate to center+relative coordinate
             all_poses shape (n_samples, n_keypoints, n_dim)
             
@@ -457,6 +504,7 @@ class TITANSimpleDataset(Dataset):
         Returns:
             converted_poses: size (batch_size, V+1, C)
         """
+        is_tensor = isinstance(all_poses, torch.Tensor)
         left_shoulder = all_poses[:, 5, :]
         right_shoulder = all_poses[:, 6, :]
         left_hip = all_poses[:, 11, :]
@@ -464,9 +512,14 @@ class TITANSimpleDataset(Dataset):
         top_mid = 0.5*(left_shoulder + right_shoulder)
         bottom_mid = 0.5*(left_hip + right_hip)
         mid = 0.5*(top_mid + bottom_mid)
-        mid = np.expand_dims(mid, axis=1)
-        relative_coord = all_poses - mid 
-        converted_poses = np.concatenate((relative_coord, mid), axis=1)
+        if is_tensor:
+            mid = mid.unsqueeze(1)
+            relative_coord = all_poses - mid
+            converted_poses = torch.cat((relative_coord, mid), dim=1)
+        else:
+            mid = np.expand_dims(mid, axis=1)
+            relative_coord = all_poses - mid 
+            converted_poses = np.concatenate((relative_coord, mid), axis=1)
         
         return converted_poses
     
@@ -619,10 +672,17 @@ class TITANSimpleDataset(Dataset):
 
 class TITANSeqDataset(Dataset):
     
-    def __init__(self, titan_dataset:TITANDataset) -> None:
+    def __init__(self, titan_dataset:TITANDataset, method="gt") -> None:
         super().__init__()
-        self.seqs = [seq.to_tensor() for seq in titan_dataset.seqs]
-
+        self.seqs = []
+        self.method=method # "gt" for using ground truth track ID, "pifpaf"
+        for seq in titan_dataset.seqs:
+            self.seqs.extend(seq.to_tensor(method=self.method))
+        self.seqs = [(TITANSimpleDataset.to_relative_coord(padded_pose), padded_label) 
+                     for padded_pose, padded_label in self.seqs]
+        self.n_feature = torch.prod(torch.tensor(self.seqs[0][0].shape[1:])) # center point + relative coordinate
+        self.n_cls = [len(np.unique(list(Person.valid_action_dict.values())))] # merged classes, list representations
+        
     def __len__(self):
         return len(self.seqs)
     
@@ -631,8 +691,58 @@ class TITANSeqDataset(Dataset):
     
     @staticmethod
     def collate(list_of_pairs):
-        
-        pass 
+        return titan_seq_collate_fn(list_of_pairs)
+
+def titan_seq_pad_seqs(list_of_seqs: List[torch.Tensor], mode="replicate", pad_value=0, is_label_seq=False):
+    """
+        pad the sequence with the last pose and label and combine them into a tensor 
+
+        input:
+            list_of_seqs (sorted): List[Tuple[pose_seq | label_seq]] 
+
+        returns: 
+            padded_seq (tensor): size (N, T, V, C), which means batch size, maximum sequence length, 
+            number of skeleton joints and feature channels (3 for 3d skeleton, 2 for 2D)
+    """
+    max_seq_len = len(list_of_seqs[0])
+
+    padded_list = []
+    for seq in list_of_seqs:
+
+        if is_label_seq:
+            pad_value = seq[-1] if mode == "replicate" else pad_value
+            seq = F.pad(seq, (0, max_seq_len - seq.shape[-1]), mode="constant", value=pad_value)
+        else:
+            # for pose sequences (T, V, C) => size (V, C, T) because padding works from the last dimension
+            seq = seq.permute(1, 2, 0)
+            seq = F.pad(seq, (0, max_seq_len - seq.shape[-1]), mode=mode)
+            # back to size (T, V, C)
+            seq = seq.permute(2, 0, 1)
+        padded_list.append(seq.unsqueeze(0))
+    padded_seq = torch.cat(padded_list, dim=0)
+
+    return padded_seq.type(torch.long) if is_label_seq else padded_seq
+
+
+def titan_seq_collate_fn(list_of_seqs, padding_mode="replicate", pad_value=0):
+    """
+        list_of_seqs is a list of (data_sequence, label_sequence), the tuple is the output of dataset.__getitem__
+
+        sort the sequences (decreasing order), pad and combine them into a tensor
+        these sequences will be suitable for batched forward (even for some pure rnn solutions
+        that uses packed sequences here
+        https://pytorch.org/docs/stable/generated/torch.nn.utils.rnn.pack_padded_sequence)
+        list_of_seqs: List[Tuple[pose_seq, label_seq]]
+    """
+    sorted_seqs = sorted(list_of_seqs, key=lambda seq: len(seq[0]), reverse=True)
+    pose_seq, pose_seq_len, label_seq = [], [], []
+    for pose, label in sorted_seqs:
+        pose_seq.append(pose)
+        pose_seq_len.append(len(pose))
+        label_seq.append(label)
+    padded_pose = titan_seq_pad_seqs(pose_seq, mode=padding_mode, pad_value=pad_value)
+    padded_label = titan_seq_pad_seqs(label_seq, mode=padding_mode, pad_value=IGNORE_INDEX, is_label_seq=True)
+    return padded_pose, padded_label
 
 def search_key(obj_dict:dict, value):
     """ search the name of action
@@ -642,9 +752,9 @@ def search_key(obj_dict:dict, value):
             return key
     raise ValueError("Unrecognized dict value")
 
-def get_all_clip_names(pifpaf_out):
-    all_clip_dirs = glob.glob(pifpaf_out+"*", recursive=True)
-    clips = [name.replace("\\", "/").split(sep="/")[-1] for name in all_clip_dirs]
+def get_all_clip_names(dataset_dir):
+    all_clip_dirs = glob.glob("{}/titan_0_4/*.csv".format(dataset_dir), recursive=True)
+    clips = [name.replace("\\", "/").split(sep="/")[-1].rstrip(".csv") for name in all_clip_dirs]
     clips = sorted(clips, key=lambda item: int(item.split(sep="_")[-1]))
     return clips
 
@@ -660,7 +770,7 @@ def enlarge_bbox(bb, enlarge=1):
     bb[3] += delta_h
     return bb
 
-def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=True):
+def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=True, mode="single"):
     """ read the pifpaf prediction results (json files), match the detections with ground truth,
         and pack the detections first by frame, then by sequence into a pickle file
         
@@ -678,7 +788,8 @@ def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=
     """
     processed_seqs = []
     total_number_list, detected_list = [], [] # how many annotated persons, how many detected 
-    clips = get_all_clip_names(pifpaf_out)
+    clips = get_all_clip_names(dataset_dir)
+
     # process all sequences 
     for clip_idx, clip in enumerate(clips):
         
@@ -699,12 +810,28 @@ def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=
             
             frame_gt_annos = groups.get_group(frame)
             frame_gt_annos = frame_gt_annos[frame_gt_annos["label"]=="person"] # just keep the annotation of person 
-            frame_pred_file = "{}/{}/{}.predictions.json".format(pifpaf_out, clip, frame)
-            with open(frame_pred_file) as f:
-                frame_pifpaf_pred = json.load(f)
+            if mode=="single":
+                frame_pred_file = "{}/{}/{}.predictions.json".format(pifpaf_out, clip, frame)
+                with open(frame_pred_file) as f:
+                    frame_pifpaf_pred = json.load(f)
+            elif mode=="track":
+                seq_pred_file = "{}/TITAN_{}_track.json".format(pifpaf_out, clip)
+                with open(seq_pred_file) as f:
+                    seq_pred = f.readlines()
+                for line in seq_pred:
+                    # frame numbers are not consecutive, some frames may not have labels
+                    # and thus they are not present in the pandas dataframe 
+                    # so we need to match the detection and ground truth with frame ID
+                    raw = json.loads(line)
+                    if int(frame.split(".")[0]) == 6*raw['frame']:
+                        break
+                assert int(frame.split(".")[0]) == 6*raw['frame'], "frame {} is not the {} th frame in sequence {}".format(frame, raw['frame'], clip)
+                frame_pifpaf_pred = raw["predictions"]
+            else:
+                raise NotImplementedError
 
             matches = [] # try to find matches if pifpaf detects some person 
-            if len(frame_pifpaf_pred) != 0:          
+            if len(frame_pifpaf_pred) > 0:          
                 # print(frame_gt_annos)
                 # print(frame_pifpaf_pred)
                 gt_bbox = frame_gt_annos[["left", "top", "width", "height"]].to_numpy() # (x, y, w, h) 
@@ -744,22 +871,26 @@ def construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir=None, debug=
     print("#Total Annotated persons: {} #Total detected persons: {}".format(sum(total_number_list), sum(detected_list)))
     
     if not debug and save_dir is not None:
-        save_path = save_dir + "/" + "TITAN_pifpaf.pkl"
+        file_name = "TITAN_pifpaf.pkl" if mode=="single" else "TITAN_pifpaf_track.pkl"
+        save_path = "{}/{}".format(save_dir, file_name)
         with open(save_path, "wb") as f:
             pickle.dump(processed_seqs, f)
         return processed_seqs
     else:
         return processed_seqs
 
-def folder_names(base_dir):
-    pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
+def folder_names(base_dir, mode="single"):
+    if mode=="single":
+        pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
+    elif mode=="track":
+        pifpaf_out = "{}/out/pifpaf_track_results/".format(base_dir)
     dataset_dir = "{}/data/TITAN/".format(base_dir)
     save_dir = "{}/out/".format(base_dir)
     return pifpaf_out, dataset_dir, save_dir
     
 def get_titan_att_types(args):
     pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
-    clips = get_all_clip_names(pifpaf_out)
+    clips = get_all_clip_names(dataset_dir)
     communicative, complex_context, atomic, simple_context, transporting = [set() for _ in range(5)]
     
     for clip in clips:
@@ -786,8 +917,8 @@ def get_titan_att_types(args):
     return att_dict_list
         
 def pickle_all_sequences(args):
-    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir)
-    construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=False)
+    pifpaf_out, dataset_dir, save_dir = folder_names(args.base_dir, mode=args.mode)
+    construct_from_pifpaf_results(pifpaf_out, dataset_dir, save_dir, debug=False, mode=args.mode)
 
 def print_dict_in_percentage(dict_record:Dict[str, int]):
     total_count = sum(list(dict_record.values()))
@@ -831,7 +962,8 @@ if __name__ == "__main__":
     parser.add_argument("--base_dir", type=str, default="./", help="default root working directory")
     parser.add_argument("--function", type=str, default="None", help="which function to call")
     parser.add_argument("--merge-cls", action="store_true", help="remove unlearnable, merge 5 labels into one")
-    args = parser.parse_args() # ["--base_dir", "poseact/", "--function", "forward", "--merge-cls"]
+    parser.add_argument("--mode", type=str, default="single", choices=["single", "track"],help="for making the pickle file")
+    args = parser.parse_args() # ["--base_dir", "poseact/", "--function", "pickle", "--mode", "track"]
 
     function_dict = {"annotation": get_titan_att_types, 
                      "pickle": pickle_all_sequences, 

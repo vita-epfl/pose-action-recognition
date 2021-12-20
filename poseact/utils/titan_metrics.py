@@ -12,8 +12,9 @@ from sklearn.metrics import (
     average_precision_score
     )
 from poseact.utils.titan_dataset import Person
+from poseact.utils.losses import IGNORE_INDEX 
 
-def compute_accuracy(model:nn.Module, testloader:DataLoader):
+def compute_accuracy(model:nn.Module, testloader:DataLoader, is_sequence=False):
     device = next(model.parameters()).device
     model.eval()
     correct = 0
@@ -22,6 +23,10 @@ def compute_accuracy(model:nn.Module, testloader:DataLoader):
         for pose, label in testloader:
             pose, label = pose.to(device), label.to(device)
             pred = model(pose)
+            if is_sequence:
+                N, T, C = pred[0].shape 
+                pred = [one_pred.view(N*T, C) for one_pred in pred]
+                label = label.view(N*T, 1)
             for one_pred, one_label in zip(pred, label.permute(1, 0)):
                 _, predicted = torch.max(one_pred.data, -1)
                 correct += (predicted == one_label).sum().item()
@@ -29,7 +34,7 @@ def compute_accuracy(model:nn.Module, testloader:DataLoader):
             
     return correct / total
 
-def get_all_predictions(model:nn.Module, testloader:DataLoader):
+def get_all_predictions(model:nn.Module, testloader:DataLoader, is_sequence=False):
     """ all prediction results, true label of a model on a test set as well as prediction score
         return three lists of numpy array, will be good for sklearn metrics, like sklearn.metrics.f1_score
         the length of each list is the number of action sets, in titan it would be 5
@@ -42,13 +47,17 @@ def get_all_predictions(model:nn.Module, testloader:DataLoader):
     
     device = next(model.parameters()).device
     model.eval()
-    n_tasks = len(model.output_size)
+    n_tasks = len(model.output_size) if isinstance(model.output_size, (list, tuple)) else 1
         
     label_list, result_list, score_list = [[[] for _ in range(n_tasks)] for _ in range(3)]
     with torch.no_grad():
         for pose, label in testloader:
             pose, label = pose.to(device), label.to(device)
             pred = model(pose)
+            if is_sequence:
+                N, T, C = pred[0].shape 
+                pred = [one_pred.view(N*T, C) for one_pred in pred]
+                label = label.view(N*T, 1)
             for idx, (one_pred, one_label) in enumerate(zip(pred, label.permute(1, 0))):
                 _, pred_class = torch.max(one_pred.data, -1)
 
@@ -58,9 +67,15 @@ def get_all_predictions(model:nn.Module, testloader:DataLoader):
             
     # result list is a list for the 5 layers of actions in TITAN hierarchy 
     # communicative, complex_context, atomic, simple_context, transporting
+    
     result_list = [torch.cat(one_list, dim=0).cpu().detach().numpy() for one_list in result_list]
     label_list = [torch.cat(one_list, dim=0).cpu().detach().numpy() for one_list in label_list]
     score_list = [torch.cat(one_list, dim=0).cpu().detach().numpy() for one_list in score_list]
+    
+    valid_idx = [np.not_equal(one_list, IGNORE_INDEX) for one_list in label_list]
+    result_list = [one_result[idx] for one_result, idx in zip(result_list, valid_idx)]
+    label_list = [one_label[idx] for one_label, idx in zip(label_list, valid_idx)]
+    score_list = [one_score[idx] for one_score, idx in zip(score_list, valid_idx)]
     
     return result_list, label_list, score_list
 

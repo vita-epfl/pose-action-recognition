@@ -97,6 +97,10 @@ class TempMonolocoModel(nn.Module):
         self.linear_size = linear_size
         self.p_dropout = p_dropout
         self.num_stage = num_stage
+        self.wrap_list = True if isinstance(output_size, list) else False
+        if self.wrap_list:
+            self.output_size = output_size[0]
+            
 
         # process input to linear size
         self.w1 = nn.Linear(self.input_size, self.linear_size)
@@ -141,6 +145,8 @@ class TempMonolocoModel(nn.Module):
         y = self.w2(y)
         # need to verify this 
         # return F.softmax(y, dim=-1)
+        if self.wrap_list:
+            y = [y]
         return y
     
     
@@ -198,9 +204,4 @@ class MultiHeadMonoLoco(nn.Module):
         predictions = [head(y) for head in self.output_heads]
         
         return predictions
-    
-class MultiHeadTempMonoloco(nn.Module):
-    
-    def __init__(self, input_size, output_size=[4, 7, 9, 13, 4], linear_size=256, p_dropout=0.2, num_stage=3):
-        super().__init__()
         

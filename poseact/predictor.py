@@ -83,7 +83,7 @@ class Predictor():
             kp_list = pifpaf_pred
             
         if self.relative_kp:
-            kp_list = TITANSimpleDataset.convert_to_relative_coord(kp_list)
+            kp_list = TITANSimpleDataset.to_relative_coord(kp_list)
             
         kp_tensor = torch.tensor(kp_list, dtype=torch.float).to(device)
         with torch.no_grad():
@@ -212,7 +212,7 @@ class Predictor():
     def prepare_dataset(self, args):
         self.save_dir = args.save_dir
         self.base_dir = args.base_dir
-        self.all_clips = get_all_clip_names(args.pifpaf_out)
+        self.all_clips = get_all_clip_names(args.dataset_dir)
         self.dataset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, args.split)
         
     def predict_one_sequence(self, idx):
@@ -250,9 +250,8 @@ class Predictor():
                 
         elif function_name == "all":
             base_dir, save_dir = args.base_dir, args.save_dir
-            pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
             
-            all_clips = get_all_clip_names(pifpaf_out)
+            all_clips = get_all_clip_names(args.dataset_dir)
             clip_nums = [int(clip.split("_")[-1]) for clip in all_clips]
             # clip_nums = [1, 2, 16, 26, 319, 731] # for debugging locally 
             self.run_multiple_seq(base_dir, save_dir, clip_nums)
@@ -301,7 +300,7 @@ if __name__ == "__main__":
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
     # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"]
-    args = parser.parse_args()
+    args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"])
     # print(args)
     args = manual_add_arguments(args)
     predictor = Predictor(args)

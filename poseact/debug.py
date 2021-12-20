@@ -106,7 +106,7 @@ for seq in testset.seqs:
         pose_array, box_array, label_array = frame.collect_objects(True)
         if pose_array.size == 0:
             continue
-        pose_array = TITANSimpleDataset.convert_to_relative_coord(pose_array)
+        pose_array = TITANSimpleDataset.to_relative_coord(pose_array)
         another_all_poses.append(pose_array)
         another_all_labels.append(label_array)
         pose_tensor = torch.tensor(pose_array, dtype=torch.float32).to(device)
