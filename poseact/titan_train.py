@@ -20,9 +20,9 @@ torch.autograd.set_detect_anomaly(True)
 
 from poseact.utils import setup_multiprocessing
 from poseact.utils.losses import MultiHeadClfLoss
-from poseact.models import MultiHeadMonoLoco, multihead_resnet
+from poseact.models import MultiHeadMonoLoco, multihead_resnet, TempMonolocoModel
 from poseact.utils.titan_metrics import compute_accuracy, get_all_predictions, get_eval_metrics, summarize_results
-from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Vehicle, Sequence, Frame
+from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, TITANSeqDataset, Person, Vehicle, Sequence, Frame
 
 # define device 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -64,6 +64,7 @@ parser.add_argument("--weight_dir", type=str, default=None, help="path to save t
 parser.add_argument("--result_dir", type=str, default=None, help="training logs dir")
 
 # model and training related arguments 
+parser.add_argument("--model_type", type=str, default="single", choices=["single", "sequence"],help="single frame or sequential model")
 parser.add_argument("--batch_size", type=int, default=512, help="batch size")
 parser.add_argument("--num_epoch", type=int, default=50, help="number of training epochs")
 parser.add_argument("--lr", type=float, default=0.002, help="learning rate") 
@@ -87,6 +88,7 @@ parser.add_argument("--normalize", action="store_true", help="divide the (x, y) 
 parser.add_argument("--use_img", action="store_true", 
                     help="crop patches from the original image, don't use poses")
 parser.add_argument("--drop_last", action="store_false", help="drop the last batch (only use in training), True if not set")
+parser.add_argument("--track_method", type=str, default="gt", choices=["gt", "pifpaf"],help="use gt track id or pifpaf track id")
 
 # loss related arguments 
 # parser.add_argument("--n_tasks", type=int, default=5, help="number of tasks for multi-task loss, 5 for TITAN")
@@ -112,42 +114,60 @@ if __name__ == "__main__":
     # ["--debug","--base_dir", "poseact", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--use_img"]
     # ["--debug","--base_dir", "poseact", "--imbalance", "focal", "--gamma", "2", "--save_model", "--merge_cls", "--relative_kp", "--normalize", "--rm_center"]
     # ["--base_dir", "poseact", "--linear_size", "128", "--test_only", "--ckpt", "TITAN_Relative_KP803217.pth"]
-    args = parser.parse_args(["--base_dir", "poseact", "--linear_size", "128",  "--relative_kp", "--merge_cls"])
+    # ["--base_dir", "poseact", "--linear_size", "128",  "--debug", "--model_type", "sequence", "--track_method", "gt", "--imbalance", "focal", "--gamma", "1"]
+    args = parser.parse_args()
     args = manual_add_arguments(args)
     
     # prepare train, validation and test splits, as well as the dataloaders 
-    trainset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "train")
-    valset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "val")
-    testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "test")
+    mode = "single" if args.model_type == "single" else "track"
+    trainset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "train", mode=mode)
+    valset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "val", mode=mode)
+    testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "test", mode=mode)
     
     if args.debug:
         print("using a 2 epochs and first 2 sequences for debugging")
         args.num_epoch = 2
+        args.batch_size = 2
         trainset.seqs = trainset.seqs[:2]
         valset.seqs = trainset.seqs[:2]
         testset.seqs = trainset.seqs[:2]
         for i in range(2):
-            trainset.seqs[i].frames = trainset.seqs[i].frames[:5]
-            valset.seqs[i].frames = valset.seqs[i].frames[:5]
-            testset.seqs[i].frames = testset.seqs[i].frames[:5]
+            trainset.seqs[i].frames = trainset.seqs[i].frames[:50]
+            valset.seqs[i].frames = valset.seqs[i].frames[:50]
+            testset.seqs[i].frames = testset.seqs[i].frames[:50]
+    
+    is_sequence = True if args.model_type=="sequence" else False
+    if is_sequence:
+        args.merge_cls = True 
         
-    trainset = TITANSimpleDataset(trainset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
-                                  relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
-    valset = TITANSimpleDataset(valset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
-                                  relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
-    testset = TITANSimpleDataset(testset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
-                                  relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
+    if is_sequence:
+        trainset = TITANSeqDataset(trainset, method=args.track_method)
+        valset = TITANSeqDataset(valset, method=args.track_method)
+        testset = TITANSeqDataset(testset, method=args.track_method)
+        collate_fn = TITANSeqDataset.collate
+        
+    else:
+        trainset = TITANSimpleDataset(trainset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
+                                    relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
+        valset = TITANSimpleDataset(valset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
+                                    relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
+        testset = TITANSimpleDataset(testset, merge_cls=args.merge_cls, inflate=args.inflate, use_img=args.use_img,
+                                    relative_kp=args.relative_kp, rm_center=args.rm_center, normalize=args.normalize)
+        collate_fn = TITANSimpleDataset.collate
         
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, 
-                             num_workers=args.workers, collate_fn=TITANSimpleDataset.collate, drop_last=args.drop_last)
+                             num_workers=args.workers, collate_fn=collate_fn, drop_last=args.drop_last)
     valloader = DataLoader(valset, batch_size=args.batch_size,shuffle=False,
-                           num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
+                           num_workers=args.workers, collate_fn=collate_fn)
     testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=False,
-                            num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)
+                            num_workers=args.workers, collate_fn=collate_fn)
     
     input_size, output_size = trainset.n_feature, trainset.n_cls
     
-    if not args.use_img:
+    if is_sequence:
+        model = TempMonolocoModel(input_size, output_size, args.linear_size, args.dropout, args.n_stage).to(device)
+        model_params = list(model.parameters())
+    elif not args.use_img:
         model = MultiHeadMonoLoco(input_size, output_size, args.linear_size, args.dropout, args.n_stage).to(device)
         model_params = list(model.parameters())
     else:
@@ -189,6 +209,10 @@ if __name__ == "__main__":
             pose, label = pose.to(device), label.to(device)
             pred = model(pose)
             # for single frame model, the output shape is (N, C), for sequence model it's (N, T, C)
+            if is_sequence:
+                N, T, C = pred[0].shape 
+                pred = [one_pred.view(N*T, C) for one_pred in pred]
+                label = label.view(N*T, 1)
             loss = criterion(pred, label)
             
             optimizer.zero_grad()
@@ -199,7 +223,7 @@ if __name__ == "__main__":
         
         train_loss = sum(batch_loss)/len(batch_loss)
         
-        test_acc = compute_accuracy(model, valloader)
+        test_acc = compute_accuracy(model, valloader, is_sequence)
         if test_acc > best_test_acc and args.select_best:
             best_test_acc = test_acc
             best_weights = copy.deepcopy(model.state_dict())
@@ -219,7 +243,7 @@ if __name__ == "__main__":
         torch.save(model.state_dict(), filename)
         print("model saved to {}".format(filename))
     
-    result_list, label_list, score_list = get_all_predictions(model, testloader)
+    result_list, label_list, score_list = get_all_predictions(model, testloader, is_sequence)
     acc, f1, jac, cfx, ap = get_eval_metrics(result_list, label_list, score_list)
     summarize_results(acc, f1, jac, cfx, ap, args.merge_cls)
         

@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
+IGNORE_INDEX = -100
 
 class FocalLoss(nn.Module):
     """ proposed in paper https://arxiv.org/pdf/1708.02002.pdf
@@ -101,7 +102,7 @@ class MultiHeadClfLoss(nn.Module):
         self.anneal_factor = anneal_factor
         self.use_uncertainty = uncertainty
         self.mask_cls = mask_cls # whether to mask out unlearnable classes 
-        self.ignore_index = -100 # replace some class labels with this, to ignore them during training
+        self.ignore_index = IGNORE_INDEX # replace some class labels with this, to ignore them during training
         
         if n_tasks == 5:
             self.cls_weights = self.compute_class_weights()

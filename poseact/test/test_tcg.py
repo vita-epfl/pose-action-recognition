@@ -24,17 +24,17 @@ def test_init_and_get_item():
 def test_pad_seqs():
     long_input = torch.ones(5, 3, 3)
     short_input = torch.tensor([1, 2, 3]).reshape(-1, 1, 1)*torch.ones(3, 3, 3)
-    padded_long, padded_short = tcg_pad_seqs([long_input, short_input])
+    padded_long, padded_short = tcg_pad_seqs([long_input, short_input], is_label_seq=False)
     padded_long = padded_long.squeeze()
     padded_short = padded_short.squeeze()
     assert torch.allclose(padded_long, long_input) and torch.allclose(padded_short[-1, :, :], torch.tensor([3.0]))
 
     long_input = torch.tensor([1, 2, 3, 4, 5])
     short_input = torch.tensor([1, 2, 3])
-    padded_long, padded_short = tcg_pad_seqs([long_input, short_input], mode="replicate")
+    padded_long, padded_short = tcg_pad_seqs([long_input, short_input], mode="replicate", is_label_seq=True)
     assert torch.allclose(padded_long, long_input) and torch.allclose(padded_short, torch.tensor([1, 2, 3, 3, 3]))
 
-    padded_long, padded_short = tcg_pad_seqs([long_input, short_input], mode="constant", pad_value=666)
+    padded_long, padded_short = tcg_pad_seqs([long_input, short_input], mode="constant", pad_value=666, is_label_seq=True)
     assert torch.allclose(padded_long, long_input) and torch.allclose(padded_short, torch.tensor([1, 2, 3, 666, 666]))
 
 
