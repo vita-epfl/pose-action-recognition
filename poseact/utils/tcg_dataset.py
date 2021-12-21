@@ -78,6 +78,7 @@ class TCGDataset(Dataset):
     def convert_to_relative_coordinate(self):
         print("converting the keypoint coordinates into center+relative")
         for idx, seq in enumerate(self.seqs):
+            # seq is a tensor with shape (N, V, C) V=17, C=3
             center_point = seq[:, 3, :].unsqueeze(1)
             relative = seq - center_point
             center_and_relative = torch.cat((relative, center_point), dim=1)
@@ -86,6 +87,7 @@ class TCGDataset(Dataset):
     def add_velocity_to_kp(self):
         print("concatinating joint velocity with location")
         for idx, seq in enumerate(self.seqs):
+            # seq is a tensor with shape (N, V, C) V=18 if use relative coordinates
             prev_pose = seq.clone()
             prev_pose[1:, :, :] = seq[:-1, :, :] # shift the original sequence by 1 step 
             velocity = seq - prev_pose # velocity will be 0 at first

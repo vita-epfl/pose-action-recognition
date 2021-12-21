@@ -31,8 +31,8 @@ def manual_add_arguments(args):
     """
         manually specify the default folders
     """
-    args.data_dir = "{}/data/".format(args.base_dir) 
-    args.result_dir = "{}/data/TITAN/".format(args.base_dir) 
+    args.data_dir = "{}/data/tcg_dataset/".format(args.base_dir) 
+    args.result_dir = "{}/out/".format(args.base_dir) 
     args.fig_dir = "{}/figs/".format(args.base_dir)
     args.weight_dir = "{}/out/trained/".format(args.base_dir) 
 
