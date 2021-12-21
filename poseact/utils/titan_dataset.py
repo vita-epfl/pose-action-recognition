@@ -65,6 +65,7 @@ class Person(object):
     
     # we also created a simpler set of actions with the actions that we think is learnable
     # and we use this set of actions to replace the original hierarchical labels if args.merge_cls is True
+    # TODO add talking on the phone and looking into phone
     valid_action_dict = {"walking":0, "standing":1, "sitting":2, "bending":3, "biking":4, "motorcycling":4}
     
     def __init__(self, pred, gt_anno) -> None:
@@ -257,7 +258,7 @@ class Sequence(object):
     def seq_obj_ids(self, method="gt"):
         obj_ids = set()
         for frame in self.frames:
-            obj_ids.update(frame.unique_obj(method="gt"))
+            obj_ids.update(frame.unique_obj(method))
         return obj_ids
     
     def to_tensor(self, method="gt"):
