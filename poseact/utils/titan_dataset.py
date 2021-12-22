@@ -694,7 +694,7 @@ class TITANSeqDataset(Dataset):
     
     @staticmethod
     def collate(list_of_pairs):
-        return titan_seq_collate_fn(list_of_pairs)
+        return titan_seq_collate_fn(list_of_pairs, padding_mode="constant", pad_value=IGNORE_INDEX)
 
 def titan_seq_pad_seqs(list_of_seqs: List[torch.Tensor], mode="replicate", pad_value=0, is_label_seq=False):
     """
