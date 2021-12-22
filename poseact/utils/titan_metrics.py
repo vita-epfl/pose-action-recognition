@@ -140,13 +140,13 @@ def summarize_results(acc, f1, jac, cfx, ap, merge_cls):
 
     for idx, layer in enumerate(action_hierarchy):
         # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
-        prec, rec, f1 = per_class_precision(cfx[idx]), per_class_recall(cfx[idx]),per_class_f1(cfx[idx])
+        class_prec, class_rec,class_f1 = per_class_precision(cfx[idx]), per_class_recall(cfx[idx]),per_class_f1(cfx[idx])
         print("")
         print("For {} actions accuracy {:.4f} Jaccard score {:.4f} f1 score {:.4f} mAP {:.4f}".format(
             layer, acc[idx], jac[idx], f1[idx], np.mean(ap[idx])))
-        print("Precision for each class: {}".format(prec))
-        print("Recall for each class: {}".format(rec))
-        print("F1 score for each class: {}".format(f1))
+        print("Precision for each class: {}".format(class_prec))
+        print("Recall for each class: {}".format(class_rec))
+        print("F1 score for each class: {}".format(class_f1))
         print("Average Precision for each class is {}".format(np.round(ap[idx], decimals=4).tolist()))
         print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
         print("The corresponding classes are {}".format(Person.get_attr_dict(layer)))
