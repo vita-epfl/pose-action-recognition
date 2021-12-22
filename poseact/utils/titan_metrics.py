@@ -29,8 +29,11 @@ def compute_accuracy(model:nn.Module, testloader:DataLoader, is_sequence=False):
                 label = label.view(N*T, 1)
             for one_pred, one_label in zip(pred, label.permute(1, 0)):
                 _, predicted = torch.max(one_pred.data, -1)
+                valid_idx = torch.not_equal(one_label, IGNORE_INDEX)
+                one_label = one_label[valid_idx]
+                predicted = predicted[valid_idx]
                 correct += (predicted == one_label).sum().item()
-            total += label.numel()
+                total += one_label.numel()
             
     return correct / total
 
