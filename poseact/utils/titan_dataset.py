@@ -282,7 +282,7 @@ class Sequence(object):
         
         # remove heading and trailing zeros https://stackoverflow.com/questions/11188364/remove-zero-lines-2-d-numpy-array
         poses_and_labels = []
-        for padded_pose, padded_label in zip(padded_pose_array, padded_label_array):
+        for idx, (padded_pose, padded_label) in enumerate(zip(padded_pose_array, padded_label_array)):
             is_not_zero = np.logical_not(np.all(padded_pose==0, axis=(1,2)))
             valid_frames = np.sum(is_not_zero) # now many none zero poses are there (non-empty)
             cumsum = np.cumsum(is_not_zero)
@@ -301,6 +301,8 @@ class Sequence(object):
                 padded_label[mid_idx] = IGNORE_INDEX # set to default ignore index of cross entropy loss 
             filtered_pose = torch.tensor(padded_pose[not_leading_or_trailing], dtype=torch.float32)
             filtered_label = torch.tensor(padded_label[not_leading_or_trailing], dtype=torch.float32)
+            if filtered_label.numel() == 0: # skip all empty (invalid) sequences
+                continue
             poses_and_labels.append((filtered_pose, filtered_label))
 
         return poses_and_labels
