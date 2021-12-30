@@ -678,6 +678,7 @@ class TITANSeqDataset(Dataset):
     def __init__(self, titan_dataset:TITANDataset, method="gt") -> None:
         super().__init__()
         self.seqs = []
+        self.split = titan_dataset.split
         self.method=method # "gt" for using ground truth track ID, "pifpaf"
         for seq in titan_dataset.seqs:
             self.seqs.extend(seq.to_tensor(method=self.method))
@@ -685,6 +686,7 @@ class TITANSeqDataset(Dataset):
                      for padded_pose, padded_label in self.seqs]
         self.n_feature = torch.prod(torch.tensor(self.seqs[0][0].shape[1:])) # center point + relative coordinate
         self.n_cls = [len(np.unique(list(Person.valid_action_dict.values())))] # merged classes, list representations
+        self.data_statistics()
         
     def __len__(self):
         return len(self.seqs)
@@ -696,6 +698,13 @@ class TITANSeqDataset(Dataset):
     def collate(list_of_pairs):
         return titan_seq_collate_fn(list_of_pairs, padding_mode="constant", pad_value=IGNORE_INDEX)
 
+    def data_statistics(self):
+        seq_lengths = [len(pose) for pose, label in self.seqs]
+        num_seqs, edge = np.histogram(seq_lengths, bins=[0, 20, 50, 100, 200, 300])
+        print("\nIn the {} split".format(self.split))
+        for idx, (n, _) in enumerate(zip(num_seqs, edge)):
+            print("{} seqs have lengths between {} and {}".format(n, edge[idx], edge[idx+1]))
+    
 def titan_seq_pad_seqs(list_of_seqs: List[torch.Tensor], mode="replicate", pad_value=0, is_label_seq=False):
     """
         pad the sequence with the last pose and label and combine them into a tensor 
