@@ -87,9 +87,9 @@ def train_model(args):
         collate_fn = CASRSimpleDataset.collate_fn
         
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, drop_last=True, collate_fn=collate_fn)
-    valloader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, drop_last=True, collate_fn=collate_fn)
-    testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=True, drop_last=True, collate_fn=collate_fn)
-    ytloader = DataLoader(ytset, batch_size=args.batch_size, shuffle=True, drop_last=True, collate_fn=collate_fn)
+    valloader = DataLoader(valset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
+    testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
+    ytloader = DataLoader(ytset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
 
     # prepare models and loss 
     input_size, output_size = trainset.n_feature, trainset.n_cls
