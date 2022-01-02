@@ -24,9 +24,9 @@ def compute_accuracy(model:nn.Module, testloader:DataLoader, is_sequence=False):
             pose, label = pose.to(device), label.to(device)
             pred = model(pose)
             if is_sequence:
-                N, T, C = pred[0].shape 
+                N, T, C = pred.shape 
                 pred = pred.view(N*T, C)
-                label = label.view(N*T, 1)
+                label = label.view(N*T)
             _, predicted = torch.max(pred.data, -1)
             valid_idx = torch.not_equal(label, IGNORE_INDEX)
             label = label[valid_idx]
@@ -56,9 +56,9 @@ def get_all_predictions(model:nn.Module, testloader:DataLoader, is_sequence=Fals
             pose, label = pose.to(device), label.to(device)
             pred = model(pose)
             if is_sequence:
-                N, T, C = pred[0].shape 
+                N, T, C = pred.shape 
                 pred = pred.view(N*T, C)
-                label = label.view(N*T, 1)
+                label = label.view(N*T)
             _, pred_class = torch.max(pred.data, -1)
             result_list.append(pred_class)
             label_list.append(label)

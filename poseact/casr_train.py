@@ -76,7 +76,7 @@ def train_model(args):
         valset.seqs = valset.seqs[:2]
         testset.seqs = testset.seqs[:2]
         ytset.seqs = ytset.seqs[:2]
-        args.batch_size = 4 if args.model_type == "sequence" else 32
+        args.batch_size = 2 if args.model_type == "sequence" else 32
             
             
     if is_sequence:
@@ -111,7 +111,7 @@ def train_model(args):
             pred = model(pose)
             # for single frame model, the output shape is (N, C), for sequence model it's (N, T, C)
             if is_sequence:
-                N, T, C = pred[0].shape 
+                N, T, C = pred.shape 
                 pred = pred.view(N*T, C)
                 label = label.view(N*T, 1)
             loss = criterion(pred, label)
@@ -143,6 +143,7 @@ def train_model(args):
     return test_results, yt_results
     
 if __name__ == "__main__":
+    # ["--base_dir", "poseact", "--model_type", "sequence", "--batch_size", "32"]
     args = parser.parse_args() # ["--base_dir", "poseact", "--debug"]
     args = manual_add_args(args)
     num_splits = len(CASRDataset.make_combs())
