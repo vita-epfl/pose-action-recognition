@@ -101,7 +101,6 @@ parser.add_argument("--mask_cls", action="store_true", help="maskout some unlear
 
 # logging related arguments 
 parser.add_argument("--task_name", type=str, default="Baseline", help="a name for this training task, used in save name")
-parser.add_argument("--select_best", action="store_true", help="select the checkpoint with best validation accuracy")
 parser.add_argument("--test_only", action="store_true", help="run a test on a pretrained model")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
 parser.add_argument("--save_model", action="store_true", help="store trained network")
@@ -224,7 +223,7 @@ if __name__ == "__main__":
         train_loss = sum(batch_loss)/len(batch_loss)
         
         test_acc = compute_accuracy(model, valloader, is_sequence)
-        if test_acc > best_test_acc and args.select_best:
+        if test_acc > best_test_acc:
             best_test_acc = test_acc
             best_weights = copy.deepcopy(model.state_dict())
         # scheduler.step(train_loss)
@@ -232,7 +231,10 @@ if __name__ == "__main__":
 
         train_loss_list.append(train_loss)
         test_acc_list.append(test_acc)
-    
+        
+    print("loading the parameters with best validation accuracy")
+    model.load_state_dict(best_weights)
+
     if args.save_model:
         task_name = args.task_name
         slurm_job_id = os.environ.get("SLURM_JOBID", None)
@@ -246,6 +248,3 @@ if __name__ == "__main__":
     result_list, label_list, score_list = get_all_predictions(model, testloader, is_sequence)
     acc, f1, jac, cfx, ap = get_eval_metrics(result_list, label_list, score_list)
     summarize_results(acc, f1, jac, cfx, ap, args.merge_cls)
-        
-    
-    

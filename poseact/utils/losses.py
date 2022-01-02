@@ -154,6 +154,9 @@ class MultiHeadClfLoss(nn.Module):
                   the ith element has size (N, C_i)
             target: label tensor of size (N, M), where M is the number of heads in that network 
         """
+        if target.dim() == 1: # N
+            target = target.unsqueeze(1) # shape (N, 1)
+            
         if self.mask_cls:
             self.mask_out_classes(target)
         loss_list = []
