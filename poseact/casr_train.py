@@ -143,7 +143,7 @@ def train_model(args):
     return test_results, yt_results
     
 if __name__ == "__main__":
-    args = parser.parse_args(["--base_dir", "poseact", "--debug"])
+    args = parser.parse_args() # ["--base_dir", "poseact", "--debug"]
     args = manual_add_args(args)
     num_splits = len(CASRDataset.make_combs())
     
