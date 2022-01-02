@@ -652,7 +652,7 @@ class TITANSeqDataset(Dataset):
     
     @staticmethod
     def collate(list_of_pairs):
-        return titan_seq_collate_fn(list_of_pairs, padding_mode="constant", pad_value=IGNORE_INDEX)
+        return titan_seq_collate_fn(list_of_pairs, padding_mode="constant", pad_value=0)
 
     def data_statistics(self):
         seq_lengths = [len(pose) for pose, label in self.seqs]
@@ -661,7 +661,7 @@ class TITANSeqDataset(Dataset):
         for idx, (n, _) in enumerate(zip(num_seqs, edge)):
             print("{} seqs have lengths between {} and {}".format(n, edge[idx], edge[idx+1]))
     
-def titan_seq_pad_seqs(list_of_seqs: List[torch.Tensor], mode="replicate", pad_value=0, is_label_seq=False):
+def titan_seq_pad_seqs(list_of_seqs: List[torch.Tensor], mode="constant", pad_value=0, is_label_seq=False):
     """
         pad the sequence with the last pose and label and combine them into a tensor 
 
@@ -692,7 +692,7 @@ def titan_seq_pad_seqs(list_of_seqs: List[torch.Tensor], mode="replicate", pad_v
     return padded_seq.type(torch.long) if is_label_seq else padded_seq
 
 
-def titan_seq_collate_fn(list_of_seqs, padding_mode="replicate", pad_value=0):
+def titan_seq_collate_fn(list_of_seqs, padding_mode="constant", pad_value=0):
     """
         list_of_seqs is a list of (data_sequence, label_sequence), the tuple is the output of dataset.__getitem__
 

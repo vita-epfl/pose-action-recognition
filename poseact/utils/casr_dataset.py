@@ -162,7 +162,7 @@ class CASRDataset(Dataset):
         print("\n")
 
     @staticmethod
-    def collate_fn(list_of_seqs, padding_mode="replicate", pad_value=0):
+    def collate_fn(list_of_seqs, padding_mode="constant", pad_value=0):
         """
             list_of_seqs is a list of (data_sequence, label_sequence), the tuple is the output of dataset.__getitem__
 
