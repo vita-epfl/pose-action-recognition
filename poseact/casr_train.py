@@ -49,14 +49,15 @@ parser.add_argument("--num_runs", type=int, default=12, help="number of differen
 parser.add_argument("--gamma", type=float, default=1.5, help="the gamma parameter for focal loss, should be a positive integer")
 
 # logging related arguments 
-# parser.add_argument("--task_name", type=str, default="Baseline", help="a name for this training task, used in save name")
+parser.add_argument("--task_name", type=str, default="Baseline", help="a name for this training task, used in save name")
 parser.add_argument("--debug", action="store_true", help="debug mode, use a small fraction of datset")
-# parser.add_argument("--save_model", action="store_true", help="store trained network")
+parser.add_argument("--save_model", action="store_true", help="store trained network")
 
 def manual_add_args(args):
     base_dir = args.base_dir
     args.pickle_dir = "{}/out/casrdata".format(base_dir)
     args.save_dir = "{}/out/".format(base_dir)
+    args.weight_dir = "{}/out/trained/".format(base_dir)
     return args  
 
 def train_model(args):
@@ -137,6 +138,16 @@ def train_model(args):
     print("loading the parameters with best validation accuracy")
     model.load_state_dict(best_weights)
     
+    if args.save_model:
+        task_name = args.task_name
+        slurm_job_id = os.environ.get("SLURM_JOBID", None)
+        if slurm_job_id is not None:
+            task_name = task_name + str(slurm_job_id)
+        time_suffix = "{}".format(datetime.datetime.now()).replace(" ", "_").replace(":", ".")
+        filename = "{}/CASR_{}_{}.pth".format(args.weight_dir, task_name, time_suffix)
+        torch.save(model.state_dict(), filename)
+        print("model saved to {}".format(filename))
+        
     test_results = get_all_predictions(model, testloader, is_sequence)
     yt_results = get_all_predictions(model, ytloader, is_sequence)
 

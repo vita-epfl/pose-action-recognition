@@ -269,7 +269,8 @@ class Predictor():
                 self.prepare_dataset(args)
                 for idx in range(len(self.dataset.seqs)):
                     self.predict_one_sequence(idx)
-                  
+        
+        # run on a single sequence in the prepared titan dataset          
         elif function_name == "titan_single":
             self.prepare_dataset(args)
             seq_idx = args.seq_idx
@@ -300,7 +301,7 @@ if __name__ == "__main__":
     parser.add_argument("--alpha", type=float, default=0.3)
     parser.add_argument("--dpi", type=int, default=350)
     # ["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"]
-    args = parser.parse_args(["--base_dir", "poseact/", "--save_dir", "poseact/out/recognition/" ,"--function", "titan_single", "--seq_idx", "0"])
+    args = parser.parse_args()
     # print(args)
     args = manual_add_arguments(args)
     predictor = Predictor(args)
