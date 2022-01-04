@@ -66,8 +66,10 @@ class Person(object):
     
     # we also created a simpler set of actions with the actions that we think is learnable
     # and we use this set of actions to replace the original hierarchical labels if args.merge_cls is True
-    # TODO add talking on the phone and looking into phone
-    valid_action_dict = {"walking":0, "standing":1, "sitting":2, "bending":3, "biking":4, "motorcycling":4}
+    # we merge biking and motorcycling together as cycling, and categorize looking into phone and talking on the phone as 
+    # using phone
+    valid_action_dict = {"walking":0, "standing":1, "sitting":2, "bending":3, "biking":4, 
+                         "motorcycling":4, "looking into phone":5, "talking on phone":5}
     
     def __init__(self, pred, gt_anno) -> None:
         """ pred: pifpaf prediction for this person 
@@ -136,11 +138,17 @@ class Person(object):
         
         atomic_action = self.search_key("atomic")
         simple_action = self.search_key("simple_context")
+        com_action = self.search_key("communicative")
         pose = self.key_points
         
+        # if the person is using the phone (looking into phone or talking on the phone)
+        # this action will have highest priority 
+        if com_action in self.valid_action_dict.keys():
+            valid = True
+            label = self.valid_action_dict.get(com_action)
         # if the person is biking (or motocycling), then simple context action 
         # will override atomic actions
-        if simple_action in self.valid_action_dict.keys():
+        elif simple_action in self.valid_action_dict.keys():
             valid = True
             label = self.valid_action_dict.get(simple_action)
         # record the person's atomic action if it's learnable 
@@ -389,7 +397,7 @@ class TITANSimpleDataset(Dataset):
                  normalize=False) -> None:
         super().__init__()
         """ merge_cls: remove the unlearnable classes, and merge the hierarchical labels into one set,
-                       see `self.merge_labels` for details 
+                       see `person.merge_labels` for details 
             inflate: copy the samples of minority classes, so the training process won't be overwhelmed by majority class
             use_img: for each person, crop an image patch from the frame, don't use poses
             relative_kp: convert a keypoint from absolute coordinate to center + relative coordinate
