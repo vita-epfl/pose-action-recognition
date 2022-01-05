@@ -123,9 +123,11 @@ def summarize_results(acc, f1, jac, cfx):
     print("In general, overall accuracy {:.4f} avg Jaccard {:.4f} avg F1 {:.4f}".format(np.mean(acc), np.mean(jac), np.mean(f1)))
     print("Best accuracy {:.4f} best Jaccard {:.4f} best F1 {:.4f}".format(np.max(acc), np.max(jac), np.max(f1)))
     print("Worst accuracy {:.4f} Worst Jaccard {:.4f} Worst F1 {:.4f}".format(np.min(acc), np.min(jac), np.min(f1)))
-    
     print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
     print("The corresponding classes are {}".format(Person.action_dict))
     avg_cfx = np.mean(cfx, axis=0)
     print(avg_cfx)
-    
+    class_prec, class_rec,class_f1 = per_class_precision(avg_cfx), per_class_recall(avg_cfx),per_class_f1(avg_cfx)
+    print("Precision for each class: {}".format(class_prec))
+    print("Recall for each class: {}".format(class_rec))
+    print("F1 score for each class: {}".format(class_f1))
