@@ -144,7 +144,7 @@ def train_model(args):
         if slurm_job_id is not None:
             task_name = task_name + str(slurm_job_id)
         time_suffix = "{}".format(datetime.datetime.now()).replace(" ", "_").replace(":", ".")
-        filename = "{}/CASR_{}_{}.pth".format(args.weight_dir, task_name, time_suffix)
+        filename = "{}/CASR_{}_{}_{}.pth".format(args.weight_dir, task_name, args.run_id,time_suffix)
         torch.save(model.state_dict(), filename)
         print("model saved to {}".format(filename))
         
