@@ -69,7 +69,7 @@ class Person(object):
     # we merge biking and motorcycling together as cycling, and categorize looking into phone and talking on the phone as 
     # using phone
     valid_action_dict = {"walking":0, "standing":1, "sitting":2, "bending":3, "biking":4, 
-                         "motorcycling":4, "looking into phone":5, "talking on phone":5}
+                         "motorcycling":4, "looking into phone":5, "talking on phone":6}
     
     def __init__(self, pred, gt_anno) -> None:
         """ pred: pifpaf prediction for this person 
