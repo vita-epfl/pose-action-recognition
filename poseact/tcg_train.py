@@ -61,6 +61,7 @@ parser.add_argument("--save_res", action="store_true", help="store training log 
 parser.add_argument("--verbose", action="store_true", help="being more verbose, like print average loss at each epoch")
 parser.add_argument("--relative_kp", action="store_true", help="use relative coordinates")
 parser.add_argument("--use_velocity", action="store_true", help="add velocity to key points")
+parser.add_argument("--project", action="store_true", help="project the original 3d coordinate to to 2d image plane")
 
 def multiprocess_wrapper(args_and_eval_id):
     # args_and_eval_id is a tuple with elements (args, eval_id)
@@ -82,9 +83,9 @@ def train_model(args):
         process_lock.release()
         
     trainset = TCGDataset(args.data_dir, args.label_type, args.eval_type, args.eval_id, training=True, 
-                          relative_kp=args.relative_kp, use_velocity=args.use_velocity)
+                          relative_kp=args.relative_kp, use_velocity=args.use_velocity, project=args.project)
     testset = TCGDataset(args.data_dir, args.label_type, args.eval_type, args.eval_id, training=False, 
-                         relative_kp=args.relative_kp, use_velocity=args.use_velocity)
+                         relative_kp=args.relative_kp, use_velocity=args.use_velocity, project=args.project)
     if args.debug:
         print("using a 2 epochs and first 2 sequences for debugging")
         args.num_epoch = 2
@@ -174,7 +175,7 @@ if __name__ == "__main__":
     # start REAL sub process as specified here https://pytorch.org/docs/stable/notes/multiprocessing.html
     mp.set_start_method('spawn')
     
-    # ["--base_dir", "poseact","--model_type", "single", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--relative_kp", "--use_velocity"]
+    # ["--base_dir", "poseact","--model_type", "single", "--eval_type", "xv", "--debug", "--num_epoch", "2", "--return_pred", "--relative_kp", "--project"]
     args = parser.parse_args()
     args = manual_add_arguments(args)
     args.output_size = TCGDataset.get_output_size(args.label_type)

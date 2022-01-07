@@ -32,7 +32,7 @@ class TCGDataset(Dataset):
                             [["right", "left", "top"], ["bottom"]]]}
 
     def __init__(self, data_path, label_type="major", eval_type=None, eval_id=None, training:bool=True, 
-                 relative_kp=False, use_velocity=False):
+                 relative_kp=False, use_velocity=False, project=False):
         """
         a pytorch dataset class for TCG dataset https://arxiv.org/abs/2007.16072
         code adopted from https://github.com/againerju/tcg_recognition/blob/master/TCGDB.py
@@ -55,12 +55,15 @@ class TCGDataset(Dataset):
         self.subject_idx = []
         self.relative_kp = relative_kp
         self.use_velocity = use_velocity
+        self.project = project
         
         self.process_sequences()
         self.process_labels(label_type)
         self.enforce_eval_protocol(eval_type, eval_id, training)
         self.down_sample_seqs()
         
+        if self.project:
+            self.project_to_image_plane()
         if self.relative_kp:
             self.convert_to_relative_coordinate()
         if self.use_velocity:
@@ -69,6 +72,23 @@ class TCGDataset(Dataset):
         self.n_feature = np.prod(self.seqs[0].shape[1:])
         del self.raw_seq, self.raw_label
 
+    def project_to_image_plane(self):
+        intrinsics = torch.tensor([[718.3351, 0.,       600.3891],
+                                   [0.,       718.3351, 181.5122],
+                                   [0.,       0.,       1.]], dtype=torch.float32)
+        extrinsics = torch.tensor([[1, 0, 0, 0],[0, 0, -1, 0],[0, 1, 0, 0]], dtype=torch.float32)
+        
+        self.seqs = [self.homo2d_to_pixel(seq, intrinsics, extrinsics) for seq in self.seqs] 
+    
+    @staticmethod
+    def homo2d_to_pixel(array, intrinsics, extrinsics):
+        N, V, C = array.shape 
+        ones = torch.ones((N, V, 1), dtype=torch.float32)
+        homo3d = torch.cat((array, ones), dim=2).unsqueeze(-1)
+        homo2d = torch.matmul(intrinsics, torch.matmul(extrinsics, homo3d)).squeeze(-1)
+        pixel_coord = torch.nan_to_num(homo2d[:,:, :2]/homo2d[:, :, 2:3], 0.0) 
+        return pixel_coord
+    
     def process_sequences(self):
         """ convert the sequences from numpy arrays to a list of pytorch tensors 
         """
