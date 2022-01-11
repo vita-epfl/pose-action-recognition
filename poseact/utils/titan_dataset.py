@@ -66,10 +66,8 @@ class Person(object):
     
     # we also created a simpler set of actions with the actions that we think is learnable
     # and we use this set of actions to replace the original hierarchical labels if args.merge_cls is True
-    # we merge biking and motorcycling together as cycling, and categorize looking into phone and talking on the phone as 
-    # using phone
-    valid_action_dict = {"walking":0, "standing":1, "sitting":2, "bending":3, "biking":4, 
-                         "motorcycling":4, "looking into phone":5, "talking on phone":6}
+    # we merge biking and motorcycling together as cycling
+    valid_action_dict = {"walking":0, "standing":1, "sitting":2, "bending":3, "biking":4, "motorcycling":4}
     
     def __init__(self, pred, gt_anno) -> None:
         """ pred: pifpaf prediction for this person 
@@ -138,17 +136,11 @@ class Person(object):
         
         atomic_action = self.search_key("atomic")
         simple_action = self.search_key("simple_context")
-        com_action = self.search_key("communicative")
         pose = self.key_points
-        
-        # if the person is using the phone (looking into phone or talking on the phone)
-        # this action will have highest priority 
-        if com_action in self.valid_action_dict.keys():
-            valid = True
-            label = self.valid_action_dict.get(com_action)
+
         # if the person is biking (or motocycling), then simple context action 
         # will override atomic actions
-        elif simple_action in self.valid_action_dict.keys():
+        if simple_action in self.valid_action_dict.keys():
             valid = True
             label = self.valid_action_dict.get(simple_action)
         # record the person's atomic action if it's learnable 
