@@ -43,13 +43,15 @@ parser.add_argument("--n_stage", type=int, default=3, help="number of stages in 
 parser.add_argument("--ckpt", default=None, type=str, help="checkpoint file name usually a xxxx.pth file in args.weight_dir")
 parser.add_argument("--merge_cls", action="store_true", help="completely remove unlearnable classes, and merge the multiple action sets into one")
 
+np.set_printoptions(precision=4, suppress=True)
+
 if __name__ == "__main__":
 
     # ["--base_dir", "poseact", "--linear_size", "128", "--merge_cls", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
     args = parser.parse_args()
     args = manual_add_arguments(args)
     
-    testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.save_dir, True, "test")
+    testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "test")
     testset = TITANSimpleDataset(testset, merge_cls=args.merge_cls)
     testloader = DataLoader(testset, batch_size=args.batch_size, shuffle=False,
                             num_workers=args.workers, collate_fn=TITANSimpleDataset.collate)

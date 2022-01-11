@@ -18,7 +18,7 @@ from poseact.utils.iou import get_iou_matches
 from poseact.utils.losses import IGNORE_INDEX
 from multiprocessing import Pool
 
-np.set_printoptions(precision=3, suppress=True)
+np.set_printoptions(precision=4, suppress=True)
 
 class Person(object):
     
