@@ -79,3 +79,14 @@ do
 done
 wait
 echo "Done making ground truth" 
+
+echo "Starting to annotate youtube videos" 
+for i in {0..7} 
+do
+	{
+	echo "Ground truth for $i"
+	python2 view.py --dataset youtube --track_number $i
+	} &
+done
+wait
+echo "Done making ground truth" 
