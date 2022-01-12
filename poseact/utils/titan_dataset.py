@@ -263,6 +263,8 @@ class Sequence(object):
         return obj_ids
     
     def to_tensor(self, method="gt"):
+        """ build a tracking sequence from the poses according to groundtruth track ID or pifpaf track ID 
+        """
         obj_ids = self.seq_obj_ids(method)
         # map the object track id into N continuous number (for this sequence only)
         index_mapping = {obj_id:idx for obj_id, idx in zip(obj_ids, range(len(obj_ids)))}

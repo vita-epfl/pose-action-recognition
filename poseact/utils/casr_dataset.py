@@ -309,16 +309,16 @@ def bytes_to_str(input_dict:dict):
     return out 
 
 if __name__ == "__main__":
-    pickle_dir = "./poseact/out/casrdata"
-    save_dir = "./poseact/out/"
-    # construct_dataset(pickle_dir, save_dir)
-    seq_dataset = CASRDataset(save_dir, run_id=0, split="all")
-    simple_dataset = CASRSimpleDataset(seq_dataset)
-    seq_loader = DataLoader(seq_dataset, batch_size=5, shuffle=False, drop_last=True, collate_fn=CASRDataset.collate_fn)
-    for pose, label in seq_loader:
-        print(pose.shape, label.shape)
+    pickle_dir = "./out/casrdata"
+    save_dir = "./out/"
+    construct_dataset(pickle_dir, save_dir)
+    # seq_dataset = CASRDataset(save_dir, run_id=0, split="all")
+    # simple_dataset = CASRSimpleDataset(seq_dataset)
+    # seq_loader = DataLoader(seq_dataset, batch_size=5, shuffle=False, drop_last=True, collate_fn=CASRDataset.collate_fn)
+    # for pose, label in seq_loader:
+    #     print(pose.shape, label.shape)
     
-    simple_loader = DataLoader(simple_dataset, batch_size=128, shuffle=False, drop_last=True, collate_fn=CASRSimpleDataset.collate_fn)
-    for pose, label in simple_loader:
-        print(pose.shape, label.shape)
+    # simple_loader = DataLoader(simple_dataset, batch_size=128, shuffle=False, drop_last=True, collate_fn=CASRSimpleDataset.collate_fn)
+    # for pose, label in simple_loader:
+    #     print(pose.shape, label.shape)
     
