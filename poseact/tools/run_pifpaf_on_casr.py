@@ -28,7 +28,7 @@ elif args.mode == "track":
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-all_clip_names = glob.glob("{}/scratch/casr/CASR_Dataset/images/*".format(base_dir), recursive=True)
+all_clip_names = glob.glob("{}/scratch/casr/data/images/*".format(base_dir), recursive=True)
 clips = [name.split(sep="/")[-1] for name in all_clip_names]
 clips = sorted(clips, key=lambda item: int(item.split(sep="_")[-1]))
         
@@ -43,7 +43,7 @@ def process_one_seq(seq_idx):
     # otherwise the shell will convert the wildcard to all matching files
     command = ["python", "-m", "openpifpaf.predict", 
                "{}/out/titan_clip/example.png".format(base_dir), 
-               "--glob", "\"{}/scratch/casr/CASR_Dataset/images/{}/*.png\"".format(base_dir, clip), 
+               "--glob", "\"{}/scratch/casr/data/images/{}/*.png\"".format(base_dir, clip), 
                "--checkpoint=shufflenetv2k30",  
                "--long-edge",  "{}".format(args.long_edge),
                "--force-complete-pose",
@@ -67,7 +67,7 @@ def track_one_seq(seq_idx):
                "--long-edge={}".format(args.long_edge),
                "--checkpoint=tshufflenetv2k16",
                "--decoder=trackingpose:0",
-               "--source", "{}/scratch/casr/CASR_Dataset/images/{}/frame_%05d.png".format(base_dir, clip), 
+               "--source", "{}/scratch/casr/data/images/{}/frame_%05d.png".format(base_dir, clip), 
                "--force-complete-pose",
                "--json-output"]
     shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
@@ -78,7 +78,7 @@ def track_one_seq(seq_idx):
         print("Failed to run on {}".format(clip))
     sys.stdout.flush()
     
-    pifpaf_out_file = "{}/scratch/casr/CASR_Dataset/images/{}/frame_%05d.png.openpifpaf.json".format(base_dir)
+    pifpaf_out_file = "{}/scratch/casr/data/images/{}/frame_%05d.png.openpifpaf.json".format(base_dir)
     json_save_dir = "{}/CASR_{}_track.json".format(output_dir, clip)
     shutil.copy(pifpaf_out_file, json_save_dir)
 
