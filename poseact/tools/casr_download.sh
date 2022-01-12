@@ -8,6 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --output "slurm-%A_%a.log"
 
+module load gcc/8.4.0 ffmpeg/4.2.2 # need to load ffmpeg for extract_images.sh
+
 echo "starting to process CASR dataset"
 
 cd ./scratch
