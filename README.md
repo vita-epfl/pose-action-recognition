@@ -75,11 +75,11 @@ F1 score for each class: [0.919 0.553 0.771 0.621 0.839]
 Average Precision for each class is [0.9687, 0.6455, 0.8122, 0.6459, 0.883]
 Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):
 The corresponding classes are {'walking': 0, 'standing': 1, 'sitting': 2, 'bending': 3, 'biking': 4, 'motorcycling': 4}
-[[31411   1172     19       142    120]
- [ 3556		3092     12       45       41]
- [   12       1            157     0         19]
- [  231      160        3         512     26]
- [  268      9            27       17       1375]]
+[[31411  1172    19   142   120]
+ [ 3556  3092    12    45    41]
+ [   12     1   157     0    19]
+ [  231   160     3   512    26]
+ [  268     9    27    17  1375]]
 ```
 
 After training and saving the model (to `out/trained/`), you can use the predictor to visualize results on TITAN (all sequences). Feel free to change the chekpoint to your own trained model, but only the file name is needed, because models are assumed to be `out/trained`
