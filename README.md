@@ -2,8 +2,7 @@
 
 <img src="./docs/demo.png" alt="demo img"  />
 
-This repo contains the codes for the 2021 Fall semester project "Action Recognition for Self-Driving Cars" at [EPFL VITA lab](https://www.epfl.ch/labs/vita/).
-
+This repo contains the codes for the 2021 Fall semester project "Action Recognition for Self-Driving Cars" at [EPFL VITA lab](https://www.epfl.ch/labs/vita/). 
 For experiment results, please refer to the project report and presenation slides at [docs](./docs). A demo video is available [here](https://youtu.be/YN5nGpIKifY). 
 
 This project utilizes a simple yet effective architecture (called **poseact**) to classify multiple actions. 
