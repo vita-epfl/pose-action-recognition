@@ -11,6 +11,8 @@
 
 echo "starting to process CASR dataset"
 
+module load gcc/8.4.0 ffmpeg/4.2.2 # need to load ffmpeg for extract_images.sh 
+
 cd /scratch/izar/wexiong
 
 git clone https://github.com/VRU-intention/casr.git
@@ -76,6 +78,17 @@ do
 	{
 	echo "Ground truth for $i"
 	python2 view.py --dataset casr --track_number $i
+	} &
+done
+wait
+echo "Done making ground truth" 
+
+echo "Starting to annotate youtube videos" 
+for i in {0..7} 
+do
+	{
+	echo "Ground truth for $i"
+	python2 view.py --dataset youtube --track_number $i
 	} &
 done
 wait
