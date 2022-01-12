@@ -61,7 +61,7 @@ class Sequence(object):
     def seq_len(self):
         return len(self.persons)
     
-    def to_tensor(self):
+    def to_tensor(self, relative_kp=True):
         
         padded_pose = np.zeros((len(self.persons), 17, 2), dtype=np.float32)
         padded_label = IGNORE_INDEX*np.ones(len(self.persons), dtype=np.int)
@@ -88,24 +88,25 @@ class Sequence(object):
             padded_label[mid_idx] = IGNORE_INDEX # set to default ignore index of cross entropy loss 
         filtered_pose = torch.tensor(padded_pose[not_leading_or_trailing], dtype=torch.float32)
         filtered_label = torch.tensor(padded_label[not_leading_or_trailing], dtype=torch.long)
-        filtered_pose = to_relative_coord(filtered_pose)
+        if relative_kp:
+            filtered_pose = to_relative_coord(filtered_pose)
         
         return (filtered_pose, filtered_label)
     
 class CASRDataset(Dataset):
     
-    def __init__(self, save_dir=None, run_id=0, split="train") -> None:
+    def __init__(self, save_dir=None, run_id=0, split="train", relative_kp=True) -> None:
         super().__init__()
         self.split = split
         self.run_id = run_id
         self.train_val_test = self.make_combs()
         raw_seqs: List[Sequence] = self.load_prepared_seqs(save_dir)
-        self.seqs = self.enforce_eval_protocol(raw_seqs, split, run_id)
+        self.seqs = self.enforce_eval_protocol(raw_seqs, split, run_id, relative_kp)
         self.data_statistics()
         self.n_feature = np.prod(self.seqs[0][0].shape[1:]) # should be 36 
         self.n_cls = len(np.unique(list(Person.action_dict.values()))) # should be 4
         
-    def enforce_eval_protocol(self, raw_seqs, split, run_id):
+    def enforce_eval_protocol(self, raw_seqs, split, run_id, relative_kp):
         train, val, test = self.train_val_test[run_id]
         split_dict = {"all":range(4), "train":train, "val":val, "test":test, "yt":"yt"}
         chosen_split = split_dict.get(split)
@@ -117,7 +118,7 @@ class CASRDataset(Dataset):
         print("run id {} train on cyclists {} validate on {} test on {} and yt chosen split is {}".format(
             run_id, train, val, test, split))
         # remove empty seqs
-        filtered_seqs = [seq.to_tensor() for seq in filtered_seqs if len(seq.persons)>0]
+        filtered_seqs = [seq.to_tensor(relative_kp) for seq in filtered_seqs if len(seq.persons)>0]
         return filtered_seqs
     
     def __len__(self):

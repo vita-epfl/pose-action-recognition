@@ -1,3 +1,7 @@
+""" count the number of instances for the original titan dataset, 
+    as well as the selected action set 
+"""
+
 import glob
 import pandas as pd
 from collections import Counter
@@ -53,3 +57,23 @@ for filename in all_files:
 for category in [communicative, complex_context, atomic, simple_context, transporting]:
     
     print_dict_in_percentage(category)
+
+df = pd.read_csv("{}/splits/test_set.txt".format(dataset_dir), header=None)
+seqs = df[0].to_numpy().tolist()
+count_dict = {"walking":0, "standing":0, "sitting":0, "bending":0, "biking":0} 
+for seq in seqs:
+    file_path = "{}/titan_0_4/{}.csv".format(dataset_dir, seq)
+    df = pd.read_csv(file_path)
+    for row_id in range(len(df)):
+        row_data = df.iloc[row_id,:]
+        if row_data["label"] != "person":
+            continue
+        simple_action = row_data["attributes.Simple Context"]
+        atomic_action = row_data["attributes.Atomic Actions"]
+        if simple_action in ["biking", "motorcycling"]:
+            count_dict["biking"] += 1
+        elif atomic_action in ["walking", "standing", "sitting", "bending"]:
+            count_dict[atomic_action] += 1
+            
+print(count_dict)
+print(sum(count_dict.values()))

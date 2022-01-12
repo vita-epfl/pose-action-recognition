@@ -278,7 +278,7 @@ class Predictor():
             pid = os.getpid()
             print("Process {} is running predictions on {} of the {} split".format(pid, clip_name, self.dataset.split))
             self.predict_one_sequence(seq_idx)
-            print("Process {} is running predictions on {} of the {} split".format(pid, clip_name, self.dataset.split))
+            print("Process {} has completed predictions on {} of the {} split".format(pid, clip_name, self.dataset.split))
             
 
 if __name__ == "__main__":
