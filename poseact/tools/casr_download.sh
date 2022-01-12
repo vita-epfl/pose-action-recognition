@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --chdir /scratch/izar/wexiong/casr
 #SBATCH --nodes 1
 #SBATCH --cpus-per-task 2
 #SBATCH --ntasks=8
@@ -11,11 +10,11 @@
 
 echo "starting to process CASR dataset"
 
-cd /scratch/izar/wexiong
+cd ./scratch
 
 git clone https://github.com/VRU-intention/casr.git
 
-cd /scratch/izar/wexiong/casr
+cd ./scratch/casr
 
 mkdir data
 unzip annotations.zip -d data
@@ -63,7 +62,7 @@ echo "Done extracting images"
 
 module load gcc/8.4.0 python/2.7.18
 
-cd /scratch/izar/wexiong/casr
+cd ./scratch/casr
 
 python -m virtualenv venv 
 
