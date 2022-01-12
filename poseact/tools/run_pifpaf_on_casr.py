@@ -16,14 +16,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--base_dir", type=str, default="./")
 parser.add_argument("--long_edge", type=int, default=1920)
 parser.add_argument("--n_process", type=int, default=0)
-parser.add_argument("--mode", type=str, default="single", choices=["single", "track"])
+parser.add_argument("--mode", type=str, default="single", choices=["single"])
 args = parser.parse_args() # ["--base_dir", "poseact", "--long_edge", "3333"]
 
 base_dir = args.base_dir
 if args.mode == "single":
     output_dir = "{}/out/casr_results_{}/".format(base_dir, args.long_edge)
-elif args.mode == "track":
-    output_dir = "{}/out/casr_track_results_{}/".format(base_dir, args.long_edge)
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -55,39 +53,10 @@ def process_one_seq(seq_idx):
     else:
         print("Failed to run on {}".format(clip))
 
-def track_one_seq(seq_idx):
-    
-    clip = clips[seq_idx]
-    pid = os.getpid()
-    print("Process {} is running pifpaf on {}".format(pid, clip))
-    sys.stdout.flush()
-
-    # otherwise the shell will convert the wildcard to all matching files
-    command = ["python", "-m", "openpifpaf.video", 
-               "--long-edge={}".format(args.long_edge),
-               "--checkpoint=tshufflenetv2k16",
-               "--decoder=trackingpose:0",
-               "--source", "{}/scratch/casr/data/images/{}/frame_%05d.png".format(base_dir, clip), 
-               "--force-complete-pose",
-               "--json-output"]
-    shell_command = " ".join(command) # if shell=True, the first arguments can not be a list 
-    process_result = subprocess.run(shell_command, shell=True, stdout=subprocess.DEVNULL)
-    if process_result.returncode == 0:
-        print("Completed pose tracking on {}".format(clip))
-    else:
-        print("Failed to run on {}".format(clip))
-    sys.stdout.flush()
-    
-    pifpaf_out_file = "{}/scratch/casr/data/images/{}/frame_%05d.png.openpifpaf.json".format(base_dir)
-    json_save_dir = "{}/CASR_{}_track.json".format(output_dir, clip)
-    shutil.copy(pifpaf_out_file, json_save_dir)
-
 if __name__ == "__main__":
     
     if args.mode == "single":
         process_function = process_one_seq
-    elif args.mode == "track":
-        process_function = track_one_seq
             
     if args.n_process > 2:
         setup_multiprocessing()
