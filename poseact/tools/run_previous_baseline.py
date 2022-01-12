@@ -31,7 +31,7 @@ torch.backends.cudnn.deterministic = True
 
 # set value for some arguments 
 parser = argparse.ArgumentParser() 
-parser.add_argument("--base_dir", type=str, default="..", help="root directory of the project")
+parser.add_argument("--base_dir", type=str, default=".", help="root directory of the project")
 parser.add_argument("--batch_size", type=int, default=512, help="batch size")
 parser.add_argument("--num_epoch", type=int, default=50, help="number of training epochs")
 parser.add_argument("--lr", type=float, default=0.002, help="learning rate") 

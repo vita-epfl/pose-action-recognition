@@ -16,3 +16,5 @@ Registration/
 *.blg
 *.log
 *_minted*
+poseact/debug.py 
+poseact/test_codes.ipynb
