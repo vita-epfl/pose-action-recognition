@@ -116,7 +116,7 @@ python utils/titan_dataset.py --function pickle --mode single
 python utils/titan_dataset.py --function pickle --mode track 
 ```
 
-For CASR, you should agree with the [terms and conditions](http://adas.cvc.uab.es/casr/) required by the autors of CASR 
+For CASR, you should agree with the [terms and conditions](http://adas.cvc.uab.es/casr/) required by the authors of CASR 
 
 CASR dataset needs some preprocessing, please create the folder `poseact/scratch` (or link to the scratch on IZAR) and then 
 
@@ -132,6 +132,6 @@ python ./utils/casr_dataset.py # now you should have the file out/CASR_pifpaf.pk
 
 The poses are extracted with [OpenPifPaf](https://openpifpaf.github.io/intro.html).
 
-The model is inspired by [MonoLoco](https://github.com/vita-epfl/monoloco) and the heuristics are from this work
+The model is inspired by [MonoLoco](https://github.com/vita-epfl/monoloco) and the heuristics are from [this work](https://github.com/charlesbvll/monoloco)
 
 The code for TCG dataset is adopted from the [official repo](https://github.com/againerju/tcg_recognition).
