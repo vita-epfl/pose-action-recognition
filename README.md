@@ -101,7 +101,7 @@ This part may be a bit cumbersome and it's advised to use the prepared poses in 
 
 First, install [OpenPifPaf](https://openpifpaf.github.io/intro.html)  and the [posetrack plugin](https://github.com/openpifpaf/openpifpaf_posetrack).
 
-For [TITAN](https://usa.honda-ri.com/titan#Videos), download the dataset to `./data/TITAN` and then 
+For [TITAN](https://usa.honda-ri.com/titan#Videos), download the dataset to `poseact/data/TITAN` and then 
 
 ```bash
 cd poseact
