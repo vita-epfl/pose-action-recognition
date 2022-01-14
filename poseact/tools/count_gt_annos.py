@@ -1,5 +1,6 @@
 """ count the number of instances for the original titan dataset, 
     as well as the selected action set 
+    usage: python tools/count_gt_annos.py 
 """
 
 import glob
@@ -30,7 +31,7 @@ def print_dict_in_percentage(dict_record:Dict[str, int]):
         print("\'{}\':{:.2f}%".format(simplify_key(key), value/total_count*100))
     print()
     
-base_dir = "poseact/"
+base_dir = "./"
 pifpaf_out = "{}/out/pifpaf_results/".format(base_dir)
 dataset_dir = "{}/data/TITAN/".format(base_dir)
 save_dir = "{}/out/".format(base_dir)

@@ -1,3 +1,8 @@
+""" Visualize the predictions on youtube set of CASR, the ckpt flag just need the file name, because the file
+    is assumed to be placed in out/trained
+    
+    python tools/run_visualization_on_casr.py --ckpt <your ckpt file>
+"""
 import os 
 import PIL
 import torch

@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader, Subset
 
 from poseact.models import MultiHeadMonoLoco
-from poseact.utils.titan_metrics import per_class_precision, per_class_recall, per_class_f1
+from poseact.utils.titan_metrics import get_eval_metrics, summarize_results
 from poseact.utils.titan_dataset import TITANDataset, TITANSimpleDataset, Person, Sequence, Frame
 from poseact.titan_train import manual_add_arguments 
 
@@ -48,7 +48,7 @@ np.set_printoptions(precision=4, suppress=True)
 if __name__ == "__main__":
 
     # ["--base_dir", "poseact", "--linear_size", "128", "--merge_cls", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"]
-    args = parser.parse_args()
+    args = parser.parse_args(["--base_dir", "poseact", "--linear_size", "128", "--merge_cls", "--ckpt", "TITAN_Baseline_2021-11-04_12.01.49.069328.pth"])
     args = manual_add_arguments(args)
     
     testset = TITANDataset(args.pifpaf_out, args.dataset_dir, args.pickle_dir, True, "test")
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     model.eval()
     n_tasks = len(model.output_size)
         
-    result_list = [[] for _ in range(n_tasks)] 
+    result_list, score_list = [[[] for _ in range(n_tasks)] for _ in range(2)]
     with torch.no_grad():
         for pose, label in testloader:
             pose, label = pose.to(device), label.to(device)
@@ -73,6 +73,7 @@ if __name__ == "__main__":
                 _, pred_class = torch.max(one_pred.data, -1)
 
                 result_list[idx].append(pred_class)
+                score_list[idx].append(one_pred)
     
     label_list= []
     with torch.no_grad():
@@ -82,11 +83,12 @@ if __name__ == "__main__":
     # result list is a list for the 5 layers of actions in TITAN hierarchy 
     # communicative, complex_context, atomic, simple_context, transporting
     result_list = [torch.cat(one_list, dim=0).cpu().detach().numpy() for one_list in result_list]
-    label_list = [torch.cat(label_list, dim=0).cpu().detach().numpy()]
+    score_list = [torch.cat(one_list, dim=0).cpu().detach().numpy() for one_list in score_list]
+    label_list = [torch.cat(label_list, dim=0).cpu().detach().numpy().flatten()]
     
-    final_result_list = [torch.zeros(label_list[0].shape)]
+    final_result_list = [np.zeros(label_list[0].shape).flatten()]
+    final_score_list = [np.zeros((label_list[0].shape[0], 5))]
     
-    squatting = (result_list[2] == 5)
     walking = (result_list[2] == 7)
     standing = (result_list[2] == 6)
     sitting = (result_list[2] == 4)
@@ -103,38 +105,17 @@ if __name__ == "__main__":
     
     result_list = final_result_list
     
-    n_classes = testset.n_cls
-    acc_list, f1_list, jac_list, cfx_list, ap_list = [[] for _ in range(5)]
-    for idx, (pred, label) in enumerate(zip(result_list, label_list)):
-        acc = accuracy_score(y_true=label, y_pred=pred)
-        f1 = f1_score(y_true=label, y_pred=pred, average='macro')
-        jac = jaccard_score(y_true=label, y_pred=pred, average='macro')
-        cfx = confusion_matrix(y_true=label, y_pred=pred, labels=range(n_classes[idx]))
-        acc_list.append(acc)
-        f1_list.append(f1)
-        jac_list.append(jac)
-        cfx_list.append(cfx)
+    final_score_list[0][:, 0] = score_list[2][:, 7]
+    final_score_list[0][:, 1] = score_list[2][:, 6]
+    final_score_list[0][:, 2] = score_list[2][:, 4]
+    final_score_list[0][:, 3] = score_list[2][:, 0]
+    final_score_list[0][:, 4] = np.max(np.concatenate((score_list[3][:, 0].reshape(-1,1), 
+                                                       score_list[3][:, 7].reshape(-1,1)), axis=1), axis=1)
     
-    print("In general, overall accuracy {:.4f} avg Jaccard {:.4f} avg F1 {:.4f}".format(
-                                np.mean(acc_list), np.mean(jac_list), np.mean(f1_list)))
-    if args.merge_cls:
-        action_hierarchy = ["valid_action"]
-    else:
-        action_hierarchy = ["communicative", "complex_context", "atomic", "simple_context", "transporting"]
+    score_list = final_score_list
     
-    for idx, layer in enumerate(action_hierarchy):
-        # some classes have 0 instances (maybe) and recalls will be 0, resulting in a nan
-        prec, rec, f1 = per_class_precision(cfx_list[idx]), per_class_recall(cfx_list[idx]),per_class_f1(cfx_list[idx])
-        print("")
-        print("For {} actions accuracy {:.4f} Jaccard score {:.4f} f1 score {:.4f}".format(
-            layer, acc_list[idx], jac_list[idx], f1_list[idx]))
-        print("Precision for each class: {}".format(prec))
-        print("Recall for each class: {}".format(rec))
-        print("F1 score for each class: {}".format(f1))
-        print("Confusion matrix (elements in a row share the same true label, those in the same columns share predicted):")
-        print("The corresponding classes are {}".format(Person.get_attr_dict(layer)))
-        print(cfx_list[idx])
-        print("")
+    acc, f1, jac, cfx, ap = get_eval_metrics(result_list, label_list, score_list)
+    summarize_results(acc, f1, jac, cfx, ap, merge_cls=True)
         
     
     

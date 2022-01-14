@@ -1,14 +1,16 @@
 """ count how many person pifpaf can detect when setting different `--long-edge`
+    first run this
+    `batch python_wrapper.sh -m openpifpaf.predict data/titan_clip/example.png --glob "./data/TITAN/images_anonymized/clip*15/images/*.png" --checkpoint=shufflenetv2k30  --long-edge 1920 --force-complete-pose`
+    and then look at the output log, modify the numbers in job_numbers and pattern_fn
+    python tools/count_pifpaf_pred.py 
 """
-# first run this
-# sbatch python_wrapper.sh -m openpifpaf.predict data/titan_clip/example.png --glob "./data/TITAN/images_anonymized/clip*15/images/*.png" --checkpoint=shufflenetv2k30  --long-edge 1920 --force-complete-pose
-# and then look at the output log  
+
 import re 
 import numpy as np 
 job_numbers = [720, 719, 699, 700, 701, 702, 703, 704, 705]
 # job_numbers = [644]
 pattern_fn = "slurm-773{}_4294967294.log".format
-file_dir = "poseact/out/"
+file_dir = "./out/"
 
 avg_det_list, long_edge_list = [], []
 for num in job_numbers:
