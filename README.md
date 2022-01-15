@@ -45,7 +45,7 @@ It's advised to `cd poseact`  and `conda activate pytorch` before running the ex
 
 To submit jobs to EPFL IZAR cluster (or similar clusters managed by slurm), you can use the script `python_wrapper.sh`. Just think of it as "the python on the cluster". To submit to debug node of IZAR, you can use the `debug.sh`
 
-Here is an example to train a model on TITAN dataset. `--imbalance focal` means using the focal loss, `--gamma 1` sets the gamma value of focal loss to 0 (because I find 0 is better :=), `--merge_cls` means selecting a suitable set of actions from the original actions hierarchy, and`--relative_kp` means using relative coordinates of the keypoints, see the presentation slides for intuition. You can specify a name for this task with `--task_name`, which will be used to name the saved model if you use `--save_model`. 
+Here is an example to train a model on TITAN dataset. `--imbalance focal` means using the focal loss, `--gamma 0` sets the gamma value of focal loss to 0 (because I find 0 is better :=), `--merge_cls` means selecting a suitable set of actions from the original actions hierarchy, and`--relative_kp` means using relative coordinates of the keypoints, see the presentation slides for intuition. You can specify a name for this task with `--task_name`, which will be used to name the saved model if you use `--save_model`. 
 
 ```bash
 sbatch python_wrapper.sh titan_train.py --imbalance focal --gamma 0 --merge_cls --relative_kp --task_name Relative_KP --save_model
