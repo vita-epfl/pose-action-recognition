@@ -9,9 +9,7 @@ This project utilizes a simple yet effective architecture (called **poseact**) t
 
 The model has been tested on three datasets, [TCG](https://github.com/againerju/tcg_recognition), [TITAN](https://usa.honda-ri.com/titan#Videos) and [CASR](https://github.com/VRU-intention/casr).
 
-<img src="./docs/model1.png" alt="drawing" style="width: 80%; zoom: 50%;"/>
-
-<img src="./docs/model2.png" alt="drawing" style="width:60%;"/>
+<img src="./docs/model structure.png" alt="drawing" style="width: 100%; zoom: 50%;"/>
 
 ### Preparation and Installation
 
