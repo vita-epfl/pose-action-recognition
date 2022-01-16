@@ -15,12 +15,12 @@ The model has been tested on three datasets, [TCG](https://github.com/againerju/
 
 This project mainly depends [PyTorch](https://pytorch.org/). If you wish to start from extracting poses from images, you would also need [OpenPifPaf](https://openpifpaf.github.io/intro.html) (along with [posetrack plugin](https://github.com/openpifpaf/openpifpaf_posetrack)), please also refer to [this section](#preparing-poses-for-titan-and-casr) for following steps. In case you wish to skip extracting your own poses, and directly start from the poses used in this repo, you can download [this folder](https://drive.google.com/file/d/1fpf8pRI1DkYtyoJqfGoBcaMUp9W4XCTO/view?usp=sharing). It contains the poses extracted from TITAN and CASR dataset as well as a trained model for TITAN dataset. For the poses in TCG dataset, please refer to the [official repo](https://github.com/againerju/tcg_recognition).
 
-First, clone and install this repo. If you downloaded the folder above, please put the contents to `poseact/out/`
+First, clone and install this repo. If you have downloaded the folder above, please put the contents to `poseact/out/`
 
-Then install this repo in editable mode. 
+Then clone this repo and install in editable mode. 
 
 ```bash
-git clone https://github.com/Weijiang-Xiong/Action_Recognition.git
+git clone https://github.com/vita-epfl/pose-action-recognition.git
 cd Action_Recognition
 python -m pip install -e .
 ```
