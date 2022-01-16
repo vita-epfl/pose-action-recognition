@@ -20,7 +20,7 @@ First, clone and install this repo. If you have downloaded the folder above, ple
 Then clone this repo and install in editable mode. 
 
 ```bash
-git clone https://github.com/vita-epfl/pose-action-recognition.git
+git clone https://github.com/Weijiang-Xiong/Action_Recognition.git
 cd Action_Recognition
 python -m pip install -e .
 ```
