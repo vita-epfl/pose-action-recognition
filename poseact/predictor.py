@@ -147,15 +147,17 @@ class Predictor():
                 if self.merge_cls:
                     box_color = self.colors[action[0]]
                     action_to_show = action
-                    label_to_show = labels[idx] if labels is not None else []
-                    gt_color = self.colors[label_to_show[0]]
+                    if labels is not None:
+                        label_to_show = labels[idx] if labels is not None else []
+                        gt_color = self.colors[label_to_show[0]]
                 else:
                     # color according to atomic action
                     box_color = self.colors[action[2]]
                     # atomic and simple context 
                     action_to_show = action[2:4]
-                    label_to_show = labels[2:4] if labels is not None else []
-                    gt_color = self.colors[label_to_show[2]]
+                    if labels is not None:
+                        label_to_show = labels[2:4] if labels is not None else []
+                        gt_color = self.colors[label_to_show[2]]
                     
                 x, y, w, h = box
                 rect = patches.Rectangle((x,y), w, h, linewidth=1, edgecolor=box_color, facecolor="none",alpha=0.85)
@@ -163,10 +165,11 @@ class Predictor():
                 for cnt, s in enumerate(action_to_show):
                     ax.text(x=x, y=y+h+cnt*20, s=s, fontsize=4, color="w", alpha=0.8,
                         bbox=dict(facecolor=box_color, edgecolor='none', pad=0, alpha=0.5))
-                
-                for new_cnt, s in enumerate(label_to_show):
-                    ax.text(x=x, y=y+h+new_cnt+(cnt+1)*20, s="GT: "+s, fontsize=4, color="w", alpha=0.8,
-                        bbox=dict(facecolor=gt_color, edgecolor='none', pad=0, alpha=0.5))
+                    
+                if labels is not None:
+                    for new_cnt, s in enumerate(label_to_show):
+                        ax.text(x=x, y=y+h+new_cnt+(cnt+1)*20, s="GT: "+s, fontsize=4, color="w", alpha=0.8,
+                            bbox=dict(facecolor=gt_color, edgecolor='none', pad=0, alpha=0.5))
                     
             if save_path is not None:
                 plt.savefig(save_path, dpi=self.dpi)
