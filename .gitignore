@@ -18,3 +18,5 @@ Registration/
 *_minted*
 poseact/debug.py 
 poseact/test_codes.ipynb
+.DS_store
+poseact/.idea
