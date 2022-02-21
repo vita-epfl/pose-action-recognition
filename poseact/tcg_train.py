@@ -44,7 +44,7 @@ def manual_add_arguments(args):
     """
         manually specify the default folders
     """
-    args.data_dir = "{}/data/tcg_dataset/".format(args.base_dir) 
+    args.data_dir = "{}/data/".format(args.base_dir)
     args.result_dir = "{}/out/".format(args.base_dir) 
     args.fig_dir = "{}/figs/".format(args.base_dir)
     args.weight_dir = "{}/out/trained/".format(args.base_dir) 
@@ -155,7 +155,6 @@ def train_model(args):
             print("Subprocess {} Epoch {} Avg Loss {:.4f} Test Acc {:.4f}".format(os.getpid(), epoch, train_loss, test_acc))
         train_loss_list.append(train_loss)
         test_acc_list.append(test_acc)
-    
 
     # save training records  
     model_prefix = "TCGSingleFrame_" if args.model_type == "single" else "TCGSeqModel_"
