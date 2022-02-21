@@ -14,7 +14,6 @@ openpifpaf==0.13.1
 packaging==21.3
 pandas==1.3.5
 Pillow==9.0.1
--e git+ssh://git@github.com/vita-epfl/pose-action-recognition.git@e6e5417b6b669b674288095a640443598242f63b#egg=poseact
 pyparsing==3.0.7
 pysparkling==0.6.1
 python-dateutil==2.8.2
