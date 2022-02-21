@@ -187,7 +187,7 @@ class Predictor():
     def get_models(self, ckpt_dir=None, json=True):
         model = MultiHeadMonoLoco(36, [5], 128, 0.2, 3).to(device)
         if os.path.exists(ckpt_dir):
-            model.load_state_dict(torch.load(ckpt_dir)) # action predictor 
+            model.load_state_dict(torch.load(ckpt_dir, map_location=device)) # action predictor
         else:
             print("can not load state dict, use initial model instead")
         predictor = openpifpaf.Predictor(checkpoint='shufflenetv2k30', json_data=True) # pifpaf predictor 
