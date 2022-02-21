@@ -1,3 +1,10 @@
+"""
+
+example usage:
+    python titan_train.py --imbalance focal --gamma 0 --merge_cls --relative_kp --task_name Relative_KP --save_model
+    
+"""
+
 import os
 import sys 
 import numpy as np

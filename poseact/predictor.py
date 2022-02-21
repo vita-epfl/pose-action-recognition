@@ -1,3 +1,8 @@
+"""
+predict on an image: python predictor.py --function image --image_path example.png
+
+"""
+
 import os
 import sys 
 import numpy as np

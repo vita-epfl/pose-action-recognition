@@ -1,3 +1,16 @@
+"""
+example usage (use `--eval_type xv` for cross-view evaluation): 
+
+    python tcg_train.py --eval_type xs --num_epoch 50 --model_type single --batch_size 2048 --lr 0.002 --linear_size 128 --n_stage 3 --return_pred
+    
+the temporal model has some different hyperparameters:
+
+    python tcg_train.py --eval_type xs --num_epoch 100 --model_type sequence --batch_size 32 --lr 0.001 --linear_size 128 --n_stage 3 --return_pred
+
+--return_pred is necessary for evaluation 
+
+"""
+
 import os
 import numpy as np
 import copy 

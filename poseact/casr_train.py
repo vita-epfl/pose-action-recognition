@@ -1,3 +1,9 @@
+"""
+example usage:
+    python casr_train.py --model_type single --gamma 1 # (single frame model)
+    python casr_train.py --model_type sequence --batch_size 32 --gamma 0 # (temporal model)
+
+"""
 import os
 import sys 
 import numpy as np
