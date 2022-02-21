@@ -56,7 +56,7 @@ parser.add_argument("--save_model", action="store_true", help="store trained net
 def manual_add_args(args):
     base_dir = args.base_dir
     args.pickle_dir = "{}/out/casrdata".format(base_dir)
-    args.save_dir = "{}/out/".format(base_dir)
+    args.save_dir = "{}/data/CASR/".format(base_dir)
     args.weight_dir = "{}/out/trained/".format(base_dir)
     return args  
 
