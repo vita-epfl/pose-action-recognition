@@ -71,9 +71,9 @@ python titan_train.py --imbalance focal --gamma 0 --merge_cls --relative_kp --no
 
 - `--task_name` specifies a name for this task, which will be used to name the saved model if you use `--save_model`
 
-- `--normalize` will transform a relative coordinate `(x,y)` to `(x/w, y/h)`, where `w` and `h` are width and height of the corresponding bonding box from OpenPifPaf. Although normalization doesn't significantly improve performance on TITAN, it helps generalize into other datasets. Thanks to Lorenzo Bertoni (@bertoni9) for this obervation . 
+- `--normalize` will transform a relative coordinate `(x,y)` to `(x/w, y/h)`, where `w` and `h` are width and height of the corresponding bonding box from OpenPifPaf. Although normalization doesn't significantly improve performance on TITAN, it helps generalize into other datasets. Thanks to Lorenzo Bertoni (@bertoni9) for this obervation. 
 
-To use the temporal model, you can set `--model_type sequence`, and maybe you will need to adjust the number of epochs, batch size and learning rate. To use pifpaf track ID instead of ground truth track ID, you can use `--track_method pifpaf` . 
+To use the temporal model, you can set `--model_type sequence`, and maybe you will need to adjust the number of epochs, batch size and learning rate. To use pifpaf track ID instead of ground truth track ID, you can use `--track_method pifpaf`. 
 
 
 ```bash
@@ -130,7 +130,7 @@ conda activate pytorch
 python -m pip install openpifpaf openpifpaf_posetrack
 ```
 
-For [TITAN](https://usa.honda-ri.com/titan#Videos), download the dataset to `poseact/data/TITAN` and then run the following commands. Those commented with `(better run on a cluster)` requires more computational resources, so it's better to run them on a cluster using `sbatch` for shell scripts or `sbatch python_wrapper.sh` for python scripts. 
+For [TITAN](https://usa.honda-ri.com/titan#Videos), download the dataset to `poseact/data/TITAN` and then run the following commands. Those commented with `(better run on a cluster)` require more computational resources, so it's better to run them on a cluster using `sbatch` for shell scripts or `sbatch python_wrapper.sh` for python scripts. 
 
 ```bash
 cd poseact
@@ -166,6 +166,7 @@ python ./utils/casr_dataset.py
 
 The poses are extracted with [OpenPifPaf](https://openpifpaf.github.io/intro.html).
 
-The model is inspired by [MonoLoco](https://github.com/vita-epfl/monoloco) and the heuristics are from [this work](https://github.com/charlesbvll/monoloco)
+The model is inspired by [MonoLoco](https://github.com/vita-epfl/monoloco) and the heuristics are from [this work](https://github.com/charlesbvll/monoloco).
 
-The code for TCG dataset is adopted from the [official repo](https://github.com/againerju/tcg_recognition).
+The code for TCG dataset is adopted from the keras implementation in the [official repo](https://github.com/againerju/tcg_recognition).
+
