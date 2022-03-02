@@ -12,5 +12,14 @@ setup(
         'poseact.tools',
         'poseact.utils',
         'poseact.test'
-    ]
+    ],
+    author='Weijiang Xiong',
+    author_email='weijiangxiong1998@gmail.com',
+    install_requires=[
+    "torch",
+    "torchvision",
+    "matplotlib",
+    "numpy",
+    "openpifpaf"
+    ],
 )

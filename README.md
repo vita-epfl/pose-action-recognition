@@ -13,52 +13,78 @@ The model has been tested on three datasets, [TCG](https://github.com/againerju/
 
 ### Preparation and Installation
 
-This project mainly depends [PyTorch](https://pytorch.org/). If you wish to start from extracting poses from images, you would also need [OpenPifPaf](https://openpifpaf.github.io/intro.html) (along with [posetrack plugin](https://github.com/openpifpaf/openpifpaf_posetrack)), please also refer to [this section](#preparing-poses-for-titan-and-casr) for following steps. In case you wish to skip extracting your own poses, and directly start from the poses used in this repo, you can download [this folder](https://drive.google.com/file/d/1fpf8pRI1DkYtyoJqfGoBcaMUp9W4XCTO/view?usp=sharing). It contains the poses extracted from TITAN and CASR dataset as well as a trained model for TITAN dataset. For the poses in TCG dataset, please refer to the [official repo](https://github.com/againerju/tcg_recognition).
-
-First, clone and install this repo. If you have downloaded the folder above, please put the contents to `poseact/out/`
-
-Then clone this repo and install in editable mode. 
+This project mainly depends [PyTorch](https://pytorch.org/) and [OpenPifPaf](https://openpifpaf.github.io/intro.html), follow the official installation guide for latest updates. Alternatively
 
 ```bash
-git clone https://github.com/Weijiang-Xiong/Action_Recognition.git
-cd Action_Recognition
+conda create -n pytorch python=3.7
+conda activate pytorch
+conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
+python -m pip install matplotlib openpifpaf
+```
+
+In the all following contents, we assume a virtual environment named `pytorch` with PyTorch and OpenPifPaf properly installed. 
+
+Clone this repo and install in editable mode. 
+
+```bash
+git clone https://github.com/vita-epfl/pose-action-recognition.git
+cd pose-action-recognition
 python -m pip install -e .
 ```
 
-### Project Structure and usage 
+If you wish to start from extracting poses from images, please also refer to [this section](#preparing-poses-for-titan-and-casr), for which you would also need the [posetrack plugin](https://github.com/openpifpaf/openpifpaf_posetrack) for OpenPifpaf. 
 
-```
-poseact
-	|___ data # create this folder to store your datasets, or create a symlink 
-	|___ models 
-	|___ test # debug tests, may also be helpful for basic usage
-	|___ tools # preprocessing and analyzing tools, usage stated in the scripts 
-	|___ utils # utility functions, such as datasets, losses and metrics 
-	|___ xxxx_train.py # training scripts for TCG, TITAN and CASR
-	|___ python_wrapper.sh # script for submitting jobs to EPFL IZAR cluster, same for debug.sh
-	|___ predictor.py  # a visualization tool with the model trained on TITAN dataset 
-```
+In case you wish to skip extracting your own poses, and directly start from the poses used in this repo, you can download [this folder](https://drive.google.com/file/d/1fpf8pRI1DkYtyoJqfGoBcaMUp9W4XCTO/view?usp=sharing) and put the contents to `poseact/out/`. It contains the poses extracted from TITAN and CASR dataset as well as a trained model for TITAN dataset. For the poses in TCG dataset, please refer to the [official repo](https://github.com/againerju/tcg_recognition). 
+
+### Project Structure and usage 
 
 It's advised to `cd poseact`  and `conda activate pytorch` before running the experiments. 
 
-To submit jobs to EPFL IZAR cluster (or similar clusters managed by slurm), you can use the script `python_wrapper.sh`. Just think of it as "the python on the cluster". To submit to debug node of IZAR, you can use the `debug.sh`
-
-Here is an example to train a model on TITAN dataset. `--imbalance focal` means using the focal loss, `--gamma 0` sets the gamma value of focal loss to 0 (because I find 0 is better :=), `--merge_cls` means selecting a suitable set of actions from the original actions hierarchy, and`--relative_kp` means using relative coordinates of the keypoints, see the presentation slides for intuition. You can specify a name for this task with `--task_name`, which will be used to name the saved model if you use `--save_model`. 
-
-```bash
-sbatch python_wrapper.sh titan_train.py --imbalance focal --gamma 0 --merge_cls --relative_kp --task_name Relative_KP --save_model
+```
+docs # slides, project report and demo video
+poseact
+  |___ data # create this folder to store your datasets, or create a symlink 
+  |___ models 
+  |___ test # debug tests, may also be helpful for basic usage
+  |___ tools # preprocessing and analyzing tools, usage stated in the scripts 
+  |___ utils # utility functions, such as datasets, losses and metrics 
+  |___ xxxx_train.py # training scripts for TCG, TITAN and CASR
+  |___ python_wrapper.sh # script for submitting jobs to EPFL IZAR cluster, same for debug.sh
+  |___ predictor.py  # a visualization tool with the model trained on TITAN dataset 
 ```
 
-To use the temporal model, you can use `--model_type sequence`, and maybe you will need to adjust the number of epochs, batch size and learning rate. To use pifpaf track ID instead of ground truth track ID, you can use `--track_method pifpaf` . 
+To submit jobs to a cluster managed by SLURM, you can use the script `python_wrapper.sh`, and replace the `python` in subsequent commands with `sbatch python_wrapper.sh` to launch the python interpreter on the cluster. Please also make sure the `#SBATCH` variables suit your cluster. 
+
+Here is an example to train a model on TITAN dataset. 
+
+```bash
+python titan_train.py --imbalance focal --gamma 0 --merge_cls --relative_kp --normalize --task_name Relative_KP --save_model
+```
+
+- `--imbalance focal` means using the focal loss
+
+- `--gamma 0` sets the gamma value of focal loss to 0 (because I find 0 is better :=)
+
+- `--merge_cls` means selecting a suitable set of actions from the original actions hierarchy
+
+- `--relative_kp` means using relative coordinates of the keypoints, see the presentation slides for intuition. 
+
+- `--task_name` specifies a name for this task, which will be used to name the saved model if you use `--save_model`
+
+- `--normalize` will transform a relative coordinate `(x,y)` to `(x/w, y/h)`, where `w` and `h` are width and height of the corresponding bonding box from OpenPifPaf. Although normalization doesn't significantly improve performance on TITAN, it helps generalize into other datasets. Thanks to Lorenzo Bertoni (@bertoni9) for this obervation . 
+
+To use the temporal model, you can set `--model_type sequence`, and maybe you will need to adjust the number of epochs, batch size and learning rate. To use pifpaf track ID instead of ground truth track ID, you can use `--track_method pifpaf` . 
 
 
 ```bash
-sbatch python_wrapper.sh titan_train.py --model_type sequence --num_epoch 100 --imbalance focal --track_method gt --batch_size 128 --gamma 0 --lr 0.001
+python titan_train.py --model_type sequence --num_epoch 100 --imbalance focal --track_method gt --batch_size 128 --gamma 0 --lr 0.001
 ```
 
-For all available training options, please refer to the comments and docstrings in the training scripts. 
+For all available training options, as well as example command for TCG and CASR, please refer to the comments and heading docstrings in the training scripts. 
 
-All the datasets have "train-validate-test" setup, so after the training, you should be able to see a summary of evaluation.
+### Generated training info
+
+All the training scripts have "train-validate-test" setup. Upon completion, you should be able to see a summary of evaluation.
 
 Here is an example
 
@@ -82,7 +108,7 @@ The corresponding classes are {'walking': 0, 'standing': 1, 'sitting': 2, 'bendi
 After training and saving the model (to `out/trained/`), you can use the predictor to visualize results on TITAN (all sequences). Feel free to change the chekpoint to your own trained model, but only the file name is needed, because models are assumed to be `out/trained`
 
 ```bash
-sbatch python_wrapper.sh predictor.py --function titanseqs --save_dir out/recognition --ckpt TITAN_Relative_KP803217.pth
+python predictor.py --function titanseqs --save_dir out/recognition --ckpt TITAN_Relative_KP803217.pth
 ```
 
 It's also possible to run on a single sequence with `--function titan_single --seq_idx <Number>`
@@ -91,39 +117,49 @@ or run on a single image with `--function image --image_path <path/to/your/image
 
 ### More about the TITAN dataset
 
-For the TITAN dataset, we first extract poses from the images with OpenPifPaf, and then match the poses to groundtruth accoding to IOU of bounding boxes. After that, we store the poses sequence by sequence, frame by frame, person by person, and you will find corresponding classes in `titan_dataset.py`. 
+For the TITAN dataset, we first extract poses from the images with OpenPifPaf, and then match the poses to groundtruth accoding to IOU of bounding boxes. After that, we store the poses sequence by sequence, frame by frame, person by person, and you can find corresponding classes in `titan_dataset.py`. 
 
 ### Preparing poses for TITAN and CASR
 
-This part may be a bit cumbersome and it's advised to use the prepared poses in [this folder](https://drive.google.com/file/d/1fpf8pRI1DkYtyoJqfGoBcaMUp9W4XCTO/view?usp=sharing). If you want to extract the poses yourself, please also download that folder, because `poseact/out/titan_clip/example.png` is needed as the input to OpenPifPaf. 
+This part may be a bit cumbersome and it's advised to use the prepared poses in [this folder](https://drive.google.com/file/d/1fpf8pRI1DkYtyoJqfGoBcaMUp9W4XCTO/view?usp=sharing). If you want to extract the poses yourself, please also download that folder, because `poseact/out/titan_clip/example.png` (could be any picture) is needed as the input to OpenPifPaf. 
 
 First, install [OpenPifPaf](https://openpifpaf.github.io/intro.html)  and the [posetrack plugin](https://github.com/openpifpaf/openpifpaf_posetrack).
 
-For [TITAN](https://usa.honda-ri.com/titan#Videos), download the dataset to `poseact/data/TITAN` and then 
+```bash
+conda activate pytorch
+python -m pip install openpifpaf openpifpaf_posetrack
+```
+
+For [TITAN](https://usa.honda-ri.com/titan#Videos), download the dataset to `poseact/data/TITAN` and then run the following commands. Those commented with `(better run on a cluster)` requires more computational resources, so it's better to run them on a cluster using `sbatch` for shell scripts or `sbatch python_wrapper.sh` for python scripts. 
 
 ```bash
 cd poseact
-conda activate pytorch # activate the python environment
-# run single frame pose detection , wait for the program to complete
-sbatch python_wrapper.sh tools/run_pifpaf_on_titan.py --mode single --n_process 6
-# run pose tracking, required for temporal model with pifpaf track ID, wait for the program to complete
-sbatch python_wrapper.sh tools/run_pifpaf_on_titan.py --mode track --n_process 6
+# activate the python environment
+conda activate pytorch 
+# run single frame pose detection , wait for the program to complete (better run on a cluster)
+python tools/run_pifpaf_on_titan.py --mode single --n_process 6
+# run pose tracking, required for temporal model with pifpaf track ID, wait for the program to complete (better run on a cluster)
+python tools/run_pifpaf_on_titan.py --mode track --n_process 6
 # make the pickle file for single frame model 
 python utils/titan_dataset.py --function pickle --mode single
 # make the pickle file from pifpaf posetrack result
 python utils/titan_dataset.py --function pickle --mode track 
 ```
 
-For CASR, you should agree with the [terms and conditions](http://adas.cvc.uab.es/casr/) required by the authors of CASR 
+For CASR, you should agree with the [terms and conditions](http://adas.cvc.uab.es/casr/) required by the authors of CASR Dataset.
 
-CASR dataset needs some preprocessing, please create the folder `poseact/scratch` (or link to the scratch on IZAR) and then 
+CASR dataset needs some preprocessing, please create the folder `poseact/scratch` (or link to a folder on a cluster) and then 
 
 ```bash
 cd poseact
-conda activate pytorch # activate the python environment
-sbatch tools/casr_download.sh # wait for the whole process to complete, takes a long time 
-sbatch python_wrapper.sh tools/run_pifpaf_on_casr.py --n_process 6 # wait for this process to complete, again a long time 
-python ./utils/casr_dataset.py # now you should have the file out/CASR_pifpaf.pkl
+# activate the python environment
+conda activate pytorch
+# wait for the whole process to complete, takes a long time (better run on a cluster)
+sbatch tools/casr_download.sh 
+# wait for this process to complete, again a long time (better run on a cluster)
+python tools/run_pifpaf_on_casr.py --n_process 6 
+# now you should have the file out/CASR_pifpaf.pkl
+python ./utils/casr_dataset.py 
 ```
 
 ### Credits
