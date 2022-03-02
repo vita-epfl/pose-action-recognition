@@ -191,6 +191,7 @@ class Predictor():
         else:
             print("can not load state dict, use initial model instead")
         predictor = openpifpaf.Predictor(checkpoint='shufflenetv2k30', json_data=True) # pifpaf predictor 
+        model.to(device)
         model.eval()
         return model, predictor
     
